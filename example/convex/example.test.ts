@@ -3,6 +3,11 @@ import { describe, expect, test, vi } from "vitest";
 import { api } from "./_generated/api";
 import schema from "./schema";
 import { register } from "../../src/test";
+import {
+  Events,
+  EventValidationError,
+  EVENT_ERROR_CODES,
+} from "../../src/client/index.js";
 
 const modules = import.meta.glob("./**/*.ts");
 
@@ -463,5 +468,180 @@ describe("events — client default-limit option", () => {
     expect(
       await t.query(api.example.listCapped, { subjectRef: "s" }),
     ).toHaveLength(1);
+  });
+});
+
+describe("events — count boundary (exact maxCount edge)", () => {
+  test("count at exactly maxCount → { count: maxCount, isExact: true } (=== edge)", async () => {
+    const t = setup();
+    const maxCount = 3;
+    await seed(t, "s", maxCount);
+    expect(
+      await t.query(api.example.count, { subjectRef: "s", maxCount }),
+    ).toEqual({ count: maxCount, isExact: true });
+  });
+
+  test("count at maxCount+1 → { count: maxCount, isExact: false } (over edge)", async () => {
+    const t = setup();
+    const maxCount = 3;
+    await seed(t, "s", maxCount + 1);
+    expect(
+      await t.query(api.example.count, { subjectRef: "s", maxCount }),
+    ).toEqual({ count: maxCount, isExact: false });
+  });
+
+  test("count at exactly maxCount on by_subject_type path → isExact: true (=== edge, typed)", async () => {
+    const t = setup();
+    const maxCount = 2;
+    await seed(t, "s", maxCount, "login");
+    expect(
+      await t.query(api.example.count, {
+        subjectRef: "s",
+        type: "login",
+        maxCount,
+      }),
+    ).toEqual({ count: maxCount, isExact: true });
+  });
+
+  test("count at maxCount+1 on by_subject_type path → isExact: false (over edge, typed)", async () => {
+    const t = setup();
+    const maxCount = 2;
+    await seed(t, "s", maxCount + 1, "login");
+    expect(
+      await t.query(api.example.count, {
+        subjectRef: "s",
+        type: "login",
+        maxCount,
+      }),
+    ).toEqual({ count: maxCount, isExact: false });
+  });
+});
+
+describe("events — selective retention", () => {
+  test("pruneExpired deletes only events outside the window, survivor is the newer event", async () => {
+    vi.useFakeTimers();
+    try {
+      const t = setup();
+      await t.mutation(api.example.record, { subjectRef: "s", type: "old" });
+      vi.advanceTimersByTime(400);
+      await t.mutation(api.example.record, { subjectRef: "s", type: "new" });
+      vi.advanceTimersByTime(700);
+      await t.mutation(api.example.configure, { retentionMs: 800 });
+      const deleted = await t.mutation(api.example.pruneExpired, {});
+      expect(deleted).toBe(1);
+      const remaining = await t.query(api.example.list, { subjectRef: "s" });
+      expect(remaining).toHaveLength(1);
+      expect(remaining[0].type).toBe("new");
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+});
+
+describe("events — purge strict-< boundary", () => {
+  test("an event stamped at exactly `before` survives purge (strict-< only deletes older)", async () => {
+    const t = setup();
+    await t.mutation(api.example.record, { subjectRef: "s", type: "t" });
+    await tick();
+    await t.mutation(api.example.record, { subjectRef: "s", type: "t" });
+    const all = await t.query(api.example.list, { subjectRef: "s" });
+    expect(all).toHaveLength(2);
+    const newestTs = all[0].createdAt;
+    const deleted = await t.mutation(api.example.purge, {
+      subjectRef: "s",
+      before: newestTs,
+    });
+    expect(deleted).toBe(1);
+    const remaining = await t.query(api.example.list, { subjectRef: "s" });
+    expect(remaining).toHaveLength(1);
+    expect(remaining[0].createdAt).toBe(newestTs);
+  });
+});
+
+describe("events — METADATA_INVALID wiring", () => {
+  test("metadataValidator that throws surfaces EventValidationError with code METADATA_INVALID", async () => {
+    const throwingEvents = new Events<{ note: string }>(
+      {} as Parameters<typeof Events>[0],
+      {
+        allowedTypes: ["t"],
+        metadataValidator: () => {
+          throw new Error("validator blew up");
+        },
+      },
+    );
+    let caught: unknown;
+    try {
+      await throwingEvents.record(
+        { runMutation: async () => "" } as never,
+        "subj",
+        "t",
+        { metadata: { note: "x" } },
+      );
+    } catch (e) {
+      caught = e;
+    }
+    expect(caught).toBeInstanceOf(EventValidationError);
+    expect((caught as EventValidationError).code).toBe(
+      EVENT_ERROR_CODES.METADATA_INVALID,
+    );
+    expect((caught as EventValidationError).message).toBe("validator blew up");
+  });
+
+  test("metadataValidator throwing a non-Error surfaces a generic METADATA_INVALID message", async () => {
+    const throwingEvents = new Events<{ note: string }>(
+      {} as Parameters<typeof Events>[0],
+      {
+        allowedTypes: ["t"],
+        metadataValidator: () => {
+          throw "raw string error";
+        },
+      },
+    );
+    let caught: unknown;
+    try {
+      await throwingEvents.record(
+        { runMutation: async () => "" } as never,
+        "subj",
+        "t",
+        { metadata: { note: "x" } },
+      );
+    } catch (e) {
+      caught = e;
+    }
+    expect(caught).toBeInstanceOf(EventValidationError);
+    expect((caught as EventValidationError).code).toBe(
+      EVENT_ERROR_CODES.METADATA_INVALID,
+    );
+  });
+});
+
+describe("events — metadata byte-size boundary", () => {
+  test("metadata at exactly maxMetadataBytes is accepted (boundary allowed)", async () => {
+    const t = setup();
+    const target = 64;
+    const wrapper = '{"note":"';
+    const closingQuotesBrace = '"}';
+    const payloadLen = target - wrapper.length - closingQuotesBrace.length;
+    const id = await t.mutation(api.example.recordGuarded, {
+      subjectRef: "s",
+      type: "created",
+      metadata: { note: "x".repeat(payloadLen) },
+    });
+    expect(typeof id).toBe("string");
+  });
+
+  test("metadata at maxMetadataBytes+1 is rejected as METADATA_TOO_LARGE (boundary+1 rejected)", async () => {
+    const t = setup();
+    const target = 64;
+    const wrapper = '{"note":"';
+    const closingQuotesBrace = '"}';
+    const payloadLen = target - wrapper.length - closingQuotesBrace.length + 1;
+    await expect(
+      t.mutation(api.example.recordGuarded, {
+        subjectRef: "s",
+        type: "created",
+        metadata: { note: "x".repeat(payloadLen) },
+      }),
+    ).rejects.toThrow(/maxMetadataBytes/);
   });
 });

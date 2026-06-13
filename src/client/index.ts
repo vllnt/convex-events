@@ -150,7 +150,16 @@ export class Events<TMeta = unknown> {
     }
     let next = metadata;
     if (next !== undefined && this.metadataValidator) {
-      next = this.metadataValidator(next);
+      try {
+        next = this.metadataValidator(next);
+      } catch (err) {
+        throw new EventValidationError(
+          EVENT_ERROR_CODES.METADATA_INVALID,
+          err instanceof Error
+            ? err.message
+            : "metadata validation failed",
+        );
+      }
     }
     if (
       this.maxMetadataBytes !== undefined &&

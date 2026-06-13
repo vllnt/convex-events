@@ -242,6 +242,13 @@ All notable changes to this project are documented here. The format is based on
 
 ## [Unreleased]
 
+### Fixed
+
+- `metadataValidator` errors are now wrapped as `EventValidationError` with code
+  `EVENTS_METADATA_INVALID` (preserving the original message), making the error
+  contract real and catchable by consumers. Previously the host's plain `Error`
+  surfaced unwrapped, so `EVENTS_METADATA_INVALID` was never thrown.
+
 ## [0.1.0] - 2026-06-12
 
 ### Added
@@ -379,10 +386,11 @@ throwing an `EventValidationError` (carrying a stable `code`):
 | `allowedTypes` | `type` not in the allow-list | `EVENTS_TYPE_NOT_ALLOWED` |
 | `maxTypeLength` | `type.length` exceeds the cap | `EVENTS_TYPE_TOO_LONG` |
 | `maxMetadataBytes` | serialized `metadata` exceeds the cap | `EVENTS_METADATA_TOO_LARGE` |
-| `metadataValidator` | the host validator throws | (the host's error) |
+| `metadataValidator` | the host validator throws | `EVENTS_METADATA_INVALID` |
 
 `metadataValidator` may also **transform** the payload (e.g. trim fields); its
-return value is what gets stored.
+return value is what gets stored. When the validator throws, the original error
+message is preserved in the `EventValidationError`.
 
 ## Types
 
@@ -716,7 +724,16 @@ export class Events<TMeta = unknown> {
     }
     let next = metadata;
     if (next !== undefined && this.metadataValidator) {
-      next = this.metadataValidator(next);
+      try {
+        next = this.metadataValidator(next);
+      } catch (err) {
+        throw new EventValidationError(
+          EVENT_ERROR_CODES.METADATA_INVALID,
+          err instanceof Error
+            ? err.message
+            : "metadata validation failed",
+        );
+      }
     }
     if (
       this.maxMetadataBytes !== undefined &&
@@ -1156,10 +1173,9 @@ export const count = query({
               q.eq("subjectRef", args.subjectRef).eq("type", type),
             )
             .take(maxCount + 1);
-    if (rows.length > maxCount) {
-      return { count: maxCount, isExact: false };
-    }
-    return { count: rows.length, isExact: true };
+    return rows.length > maxCount
+      ? { count: maxCount, isExact: false }
+      : { count: rows.length, isExact: true };
   },
 });
 

@@ -17,15 +17,10 @@ import {
   type PaginatedQueryItem,
   type UsePaginatedQueryResult,
 } from "convex/react";
-import type { FunctionReference } from "convex/server";
+import type { FunctionReference, PaginationOptions } from "convex/server";
+import type { CountResult } from "../client/types.js";
 
-/** A capped count, as returned by the host's re-exported `count` query. */
-export interface CountResult {
-  /** Number of matching events, capped at the scan bound. */
-  count: number;
-  /** `false` when more events exist than the scan bound (so `count` is the bound). */
-  isExact: boolean;
-}
+export type { CountResult };
 
 /**
  * The host's re-exported **paginated** feed query. A public query taking
@@ -38,14 +33,7 @@ export type ActivityFeedRef = FunctionReference<
   {
     subjectRef: string;
     type?: string;
-    paginationOpts: {
-      numItems: number;
-      cursor: string | null;
-      id?: number;
-      endCursor?: string | null;
-      maximumRowsRead?: number;
-      maximumBytesRead?: number;
-    };
+    paginationOpts: PaginationOptions;
   },
   { page: unknown[]; isDone: boolean; continueCursor: string }
 >;

@@ -101,10 +101,11 @@ throwing an `EventValidationError` (carrying a stable `code`):
 | `allowedTypes` | `type` not in the allow-list | `EVENTS_TYPE_NOT_ALLOWED` |
 | `maxTypeLength` | `type.length` exceeds the cap | `EVENTS_TYPE_TOO_LONG` |
 | `maxMetadataBytes` | serialized `metadata` exceeds the cap | `EVENTS_METADATA_TOO_LARGE` |
-| `metadataValidator` | the host validator throws | (the host's error) |
+| `metadataValidator` | the host validator throws | `EVENTS_METADATA_INVALID` |
 
 `metadataValidator` may also **transform** the payload (e.g. trim fields); its
-return value is what gets stored.
+return value is what gets stored. When the validator throws, the original error
+message is preserved in the `EventValidationError`.
 
 ## Types
 

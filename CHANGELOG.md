@@ -6,6 +6,13 @@ All notable changes to this project are documented here. The format is based on
 
 ## [Unreleased]
 
+### Fixed
+
+- `metadataValidator` errors are now wrapped as `EventValidationError` with code
+  `EVENTS_METADATA_INVALID` (preserving the original message), making the error
+  contract real and catchable by consumers. Previously the host's plain `Error`
+  surfaced unwrapped, so `EVENTS_METADATA_INVALID` was never thrown.
+
 ## [0.1.0] - 2026-06-12
 
 ### Added
