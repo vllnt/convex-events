@@ -1,4 +1,5 @@
 <!-- Badges -->
+[![Convex Component](https://img.shields.io/badge/convex-component-EE342F.svg)](https://www.convex.dev/components)
 [![npm](https://img.shields.io/npm/v/@vllnt/convex-events.svg)](https://www.npmjs.com/package/@vllnt/convex-events)
 [![CI](https://github.com/vllnt/convex-events/actions/workflows/ci.yml/badge.svg)](https://github.com/vllnt/convex-events/actions/workflows/ci.yml)
 [![license](https://img.shields.io/npm/l/@vllnt/convex-events.svg)](./LICENSE)
@@ -57,7 +58,7 @@ a no-op until the host calls `configure`.
 pnpm add @vllnt/convex-events
 ```
 
-Peer dependency: `convex@^1.36.1`.
+Peer dependency: `convex@^1.41.0`.
 
 ## Usage
 
@@ -216,6 +217,14 @@ Tests run against the real component runtime via `convex-test` (`@edge-runtime/v
 ## Contributing
 
 See [CONTRIBUTING.md](CONTRIBUTING.md).
+
+## Author
+
+Built by [bntvllnt](https://github.com/bntvllnt) · [bntvllnt.com](https://bntvllnt.com) · [X @bntvllnt](https://x.com/bntvllnt)
+
+Part of the [@vllnt](https://github.com/vllnt) Convex component fleet — [vllnt.com](https://vllnt.com)
+
+If this is useful, [sponsor the work](https://github.com/sponsors/bntvllnt).
 
 ## License
 

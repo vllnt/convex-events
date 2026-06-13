@@ -2,7 +2,7 @@
 
 > Append-only per-subject activity feed and event ledger, as a Convex component
 
-`@vllnt/convex-events` is a publishable Convex component. It targets `convex@^1.36.1`.
+`@vllnt/convex-events` is a publishable Convex component. It targets `convex@^1.41.0`.
 It stores two sandboxed tables - `events` (`subjectRef`, `type`, optional `actorRef`, opaque `metadata`, `createdAt`), indexed `by_subject`, `by_subject_type`, and `by_createdAt`; and a singleton `config` (`retentionMs?`). `record` appends an event (stamping `createdAt`); `list` reads a subject's feed newest-first (with optional `type` / `since` / `limit`), `paginate` returns Convex's cursor page `{ page, isDone, continueCursor }`, and `count` returns a bounded `{ count, isExact }` (scans at most `maxCount + 1` rows). `purge` drops a subject's events in self-rescheduling batches (all, or only those before a cutoff). `configure` sets a `retentionMs` window that an internal idempotent daily cron prunes against (`pruneExpired`). The client is generic over the host's metadata type and applies optional boundary guards (`allowedTypes`, `maxTypeLength`, `maxMetadataBytes`, `metadataValidator`) that throw a code-tagged `EventValidationError`. The host owns the subject, actor, auth, and meaning; the component owns only the ordered event store.
 
 ## Docs
@@ -22,5 +22,5 @@ It stores two sandboxed tables - `events` (`subjectRef`, `type`, optional `actor
 - [AGENTS](AGENTS.md): Canonical agent instructions for this repository
 - [Security Policy](SECURITY.md): Vulnerability reporting policy
 - [Code of Conduct](CODE_OF_CONDUCT.md): Community participation guidelines
-- [License](LICENSE)
+- [License](LICENSE): MIT license
 - [Full source bundle](llms-full.txt): Aggregated README, changelog, API docs, and key source files

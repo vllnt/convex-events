@@ -1,5 +1,7 @@
 # API Reference — @vllnt/convex-events
 
+**Compatibility:** `convex@^1.41.0`
+
 Construct the client with the mounted component and optional config. The client
 is generic over the host's metadata type `TMeta`:
 
