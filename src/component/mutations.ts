@@ -48,7 +48,7 @@ export const purge = mutation({
       })
       .take(batch);
     for (const row of rows) {
-      await ctx.db.delete(row._id);
+      await ctx.db.delete("events", row._id);
     }
     if (rows.length === batch) {
       await ctx.scheduler.runAfter(0, api.mutations.purge, {
@@ -70,7 +70,7 @@ export const configure = mutation({
     if (existing === null) {
       await ctx.db.insert("config", { retentionMs: args.retentionMs });
     } else {
-      await ctx.db.patch(existing._id, { retentionMs: args.retentionMs });
+      await ctx.db.patch("config", existing._id, { retentionMs: args.retentionMs });
     }
     return null;
   },
@@ -98,7 +98,7 @@ export const pruneExpired = mutation({
       .withIndex("by_createdAt", (q) => q.lt("createdAt", cutoff))
       .take(batch);
     for (const row of rows) {
-      await ctx.db.delete(row._id);
+      await ctx.db.delete("events", row._id);
     }
     if (rows.length === batch) {
       await ctx.scheduler.runAfter(0, api.mutations.pruneExpired, { batch });
