@@ -10,7 +10,7 @@ export const jsonValue = v.any();
 
 /** Shape of a stored event row, as returned by the read queries. */
 export const eventDoc = v.object({
-  _id: v.id("events"),
+  _id: v.string(),
   _creationTime: v.number(),
   subjectRef: v.string(),
   type: v.string(),
