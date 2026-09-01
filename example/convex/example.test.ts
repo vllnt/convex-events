@@ -35,6 +35,49 @@ async function seed(
 }
 
 describe("events — record / list", () => {
+  test("an idempotency key replays the original event id within one subject", async () => {
+    const t = setup();
+    const first = await t.mutation(api.example.record, {
+      subjectRef: "s",
+      type: "created",
+      idempotencyKey: "request-1",
+    });
+    const replay = await t.mutation(api.example.record, {
+      subjectRef: "s",
+      type: "different-payload-is-not-rewritten",
+      idempotencyKey: "request-1",
+    });
+    const otherSubject = await t.mutation(api.example.record, {
+      subjectRef: "other",
+      type: "created",
+      idempotencyKey: "request-1",
+    });
+    expect(replay).toBe(first);
+    expect(otherSubject).not.toBe(first);
+    expect(await t.query(api.example.count, { subjectRef: "s" })).toEqual({
+      count: 1,
+      isExact: true,
+    });
+    const [event] = await t.query(api.example.list, { subjectRef: "s" });
+    expect(event).not.toHaveProperty("idempotencyKey");
+    const page = await t.query(api.example.paginate, {
+      subjectRef: "s",
+      paginationOpts: { cursor: null, numItems: 1 },
+    });
+    expect(page.page[0]).not.toHaveProperty("idempotencyKey");
+  });
+
+  test.each(["", "x".repeat(257)])("rejects invalid idempotency key length", async (idempotencyKey) => {
+    const t = setup();
+    await expect(
+      t.mutation(api.example.record, {
+        subjectRef: "s",
+        type: "created",
+        idempotencyKey,
+      }),
+    ).rejects.toThrow(/INVALID_IDEMPOTENCY_KEY|between 1 and 256/);
+  });
+
   test("record then list round-trips, newest-first (happy path)", async () => {
     const t = setup();
     const id1 = await t.mutation(api.example.record, {
@@ -339,6 +382,40 @@ describe("events — purge (batched)", () => {
   });
 });
 
+describe("events — mutation input bounds", () => {
+  test.each([Number.NaN, 0, -1, 1.5, 501])("purge rejects invalid batch %s", async (batch) => {
+    const t = setup();
+    await expect(
+      t.mutation(api.example.purge, { subjectRef: "s", batch }),
+    ).rejects.toThrow(/INVALID_BATCH|integer between/);
+  });
+
+  test("purge rejects a non-finite cutoff", async () => {
+    const t = setup();
+    await expect(
+      t.mutation(api.example.purge, { subjectRef: "s", before: Number.NaN }),
+    ).rejects.toThrow(/INVALID_BEFORE|finite/);
+  });
+
+  test("pruneExpired rejects an invalid batch after retention is configured", async () => {
+    const t = setup();
+    await t.mutation(api.example.configure, { retentionMs: 1 });
+    await expect(
+      t.mutation(api.example.pruneExpired, { batch: 0 }),
+    ).rejects.toThrow(/INVALID_BATCH|integer between/);
+  });
+
+  test.each([-1, Number.NaN, Number.POSITIVE_INFINITY])(
+    "configure rejects destructive retention %s",
+    async (retentionMs) => {
+      const t = setup();
+      await expect(
+        t.mutation(api.example.configure, { retentionMs }),
+      ).rejects.toThrow(/INVALID_RETENTION|non-negative finite/);
+    },
+  );
+});
+
 describe("events — retention (configure + pruneExpired cron)", () => {
   test("pruneExpired is a no-op until retention is configured", async () => {
     const t = setup();
@@ -468,6 +545,44 @@ describe("events — client default-limit option", () => {
     expect(
       await t.query(api.example.listCapped, { subjectRef: "s" }),
     ).toHaveLength(1);
+  });
+});
+
+describe("events — read bounds", () => {
+  test.each([Number.NaN, 0, -1, 1.5, 1001])("list rejects invalid limit %s", async (limit) => {
+    const t = setup();
+    await expect(t.query(api.example.list, { subjectRef: "s", limit })).rejects.toThrow(
+      /INVALID_LIMIT|integer between/,
+    );
+  });
+
+  test.each([Number.NaN, 0, -1, 1.5, 1001])(
+    "pagination rejects invalid numItems %s",
+    async (numItems) => {
+      const t = setup();
+      await expect(
+        t.query(api.example.paginate, {
+          subjectRef: "s",
+          paginationOpts: { cursor: null, numItems },
+        }),
+      ).rejects.toThrow(/INVALID_LIMIT|integer between/);
+    },
+  );
+
+  test.each([Number.NaN, -1, 1.5, 1001])("count rejects invalid maxCount %s", async (maxCount) => {
+    const t = setup();
+    await expect(
+      t.query(api.example.count, { subjectRef: "s", maxCount }),
+    ).rejects.toThrow(/INVALID_LIMIT|integer between/);
+  });
+
+  test("count permits an explicit zero bound", async () => {
+    const t = setup();
+    await seed(t, "s", 1);
+    expect(await t.query(api.example.count, { subjectRef: "s", maxCount: 0 })).toEqual({
+      count: 0,
+      isExact: false,
+    });
   });
 });
 

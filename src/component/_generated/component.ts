@@ -48,7 +48,13 @@ export type ComponentApi<Name extends string | undefined = string | undefined> =
       record: FunctionReference<
         "mutation",
         "internal",
-        { actorRef?: string; metadata?: any; subjectRef: string; type: string },
+        {
+          actorRef?: string;
+          idempotencyKey?: string;
+          metadata?: any;
+          subjectRef: string;
+          type: string;
+        },
         string,
         Name
       >;

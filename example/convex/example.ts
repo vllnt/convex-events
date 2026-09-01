@@ -53,12 +53,14 @@ export const record = mutation({
     subjectRef: v.string(),
     type: v.string(),
     actorRef: v.optional(v.string()),
+    idempotencyKey: v.optional(v.string()),
     metadata: v.optional(jsonValue),
   },
   returns: v.string(),
   handler: (ctx, a) =>
     events.record(ctx, a.subjectRef, a.type, {
       actorRef: a.actorRef,
+      idempotencyKey: a.idempotencyKey,
       metadata: a.metadata,
     }),
 });
