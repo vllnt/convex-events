@@ -31,6 +31,7 @@ export interface EventsComponent<TMeta = unknown> {
         subjectRef: string;
         type: string;
         actorRef?: string;
+        idempotencyKey?: string;
         metadata?: TMeta;
       },
       string
@@ -184,13 +185,14 @@ export class Events<TMeta = unknown> {
     ctx: RunMutationCtx,
     subjectRef: string,
     type: string,
-    opts: { actorRef?: string; metadata?: TMeta } = {},
+    opts: { actorRef?: string; idempotencyKey?: string; metadata?: TMeta } = {},
   ): Promise<string> {
     const metadata = this.guard(type, opts.metadata);
     return ctx.runMutation(this.component.mutations.record, {
       subjectRef,
       type,
       actorRef: opts.actorRef,
+      idempotencyKey: opts.idempotencyKey,
       metadata,
     });
   }

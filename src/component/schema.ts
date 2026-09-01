@@ -12,10 +12,12 @@ export default defineSchema({
     subjectRef: v.string(),
     type: v.string(),
     actorRef: v.optional(v.string()),
+    idempotencyKey: v.optional(v.string()),
     metadata: v.optional(jsonValue),
     createdAt: v.number(),
   })
     .index("by_subject", ["subjectRef", "createdAt"])
+    .index("by_subject_idempotency", ["subjectRef", "idempotencyKey"])
     .index("by_subject_type", ["subjectRef", "type", "createdAt"])
     .index("by_createdAt", ["createdAt"]),
   /**

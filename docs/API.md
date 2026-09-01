@@ -36,6 +36,9 @@ client applies its configured boundary guards (see **Guards** below) — on
 rejection it throws an `EventValidationError`. `opts`:
 
 - `actorRef?: string` — opaque ref for who caused the event.
+- `idempotencyKey?: string` — opaque per-subject retry key (1–256 characters); while the original
+  event remains retained, a replay returns its ID without inserting or rewriting another row. Purge
+  and retention delete the replay record together with the event.
 - `metadata?: TMeta` — host-owned payload. Omitted ⇒ the field is not stored, so
   it reads back absent (`undefined`) rather than a fake `TMeta` value.
 

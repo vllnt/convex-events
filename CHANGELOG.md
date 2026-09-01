@@ -6,6 +6,15 @@ All notable changes to this project are documented here. The format is based on
 
 ## [Unreleased]
 
+### Fixed
+
+- Reject unsafe purge/prune batches, non-finite cutoffs, and negative or non-finite retention
+  windows before they can trigger scheduler loops or destructive retention.
+- Bound and validate list/count controls so malformed values cannot produce invalid results or
+  caller-controlled read amplification.
+- Add optional per-subject idempotency keys so ambiguous host retries replay the original event ID
+  instead of duplicating ledger entries.
+
 ### Changed
 
 - Treat Convex `_generated` output as CLI-owned, exclude it from formatting, and expose a

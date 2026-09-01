@@ -162,6 +162,22 @@ All notable changes to this project are documented here. The format is based on
 
 ### Fixed
 
+- Reject unsafe purge/prune batches, non-finite cutoffs, and negative or non-finite retention
+  windows before they can trigger scheduler loops or destructive retention.
+- Bound and validate list/count controls so malformed values cannot produce invalid results or
+  caller-controlled read amplification.
+- Add optional per-subject idempotency keys so ambiguous host retries replay the original event ID
+  instead of duplicating ledger entries.
+
+### Changed
+
+- Treat Convex `_generated` output as CLI-owned, exclude it from formatting, and expose a
+  dedicated codegen script.
+- Refresh all direct dependencies to their latest compatible releases for canary validation.
+- Require `convex@^1.45.0` and update `convex-test` to `^0.0.56`.
+
+### Fixed
+
 - `metadataValidator` errors are now wrapped as `EventValidationError` with code
   `EVENTS_METADATA_INVALID` (preserving the original message), making the error
   contract real and catchable by consumers. Previously the host's plain `Error`
@@ -239,6 +255,9 @@ client applies its configured boundary guards (see **Guards** below) — on
 rejection it throws an `EventValidationError`. `opts`:
 
 - `actorRef?: string` — opaque ref for who caused the event.
+- `idempotencyKey?: string` — opaque per-subject retry key (1–256 characters); while the original
+  event remains retained, a replay returns its ID without inserting or rewriting another row. Purge
+  and retention delete the replay record together with the event.
 - `metadata?: TMeta` — host-owned payload. Omitted ⇒ the field is not stored, so
   it reads back absent (`undefined`) rather than a fake `TMeta` value.
 
@@ -525,6 +544,7 @@ export interface EventsComponent<TMeta = unknown> {
         subjectRef: string;
         type: string;
         actorRef?: string;
+        idempotencyKey?: string;
         metadata?: TMeta;
       },
       string
@@ -678,13 +698,14 @@ export class Events<TMeta = unknown> {
     ctx: RunMutationCtx,
     subjectRef: string,
     type: string,
-    opts: { actorRef?: string; metadata?: TMeta } = {},
+    opts: { actorRef?: string; idempotencyKey?: string; metadata?: TMeta } = {},
   ): Promise<string> {
     const metadata = this.guard(type, opts.metadata);
     return ctx.runMutation(this.component.mutations.record, {
       subjectRef,
       type,
       actorRef: opts.actorRef,
+      idempotencyKey: opts.idempotencyKey,
       metadata,
     });
   }
@@ -902,10 +923,12 @@ export default defineSchema({
     subjectRef: v.string(),
     type: v.string(),
     actorRef: v.optional(v.string()),
+    idempotencyKey: v.optional(v.string()),
     metadata: v.optional(jsonValue),
     createdAt: v.number(),
   })
     .index("by_subject", ["subjectRef", "createdAt"])
+    .index("by_subject_idempotency", ["subjectRef", "idempotencyKey"])
     .index("by_subject_type", ["subjectRef", "type", "createdAt"])
     .index("by_createdAt", ["createdAt"]),
   /**
@@ -936,7 +959,7 @@ export const jsonValue = v.any();
 
 /** Shape of a stored event row, as returned by the read queries. */
 export const eventDoc = v.object({
-  _id: v.id("events"),
+  _id: v.string(),
   _creationTime: v.number(),
   subjectRef: v.string(),
   type: v.string(),
@@ -964,27 +987,59 @@ export const countResult = v.object({
 ## src/component/mutations.ts
 
 ```ts
-import { v } from "convex/values";
+import { ConvexError, v } from "convex/values";
 import { mutation } from "./_generated/server";
 import { api } from "./_generated/api";
 import { jsonValue } from "./validators";
 
 /** Default number of rows deleted per `purge` / prune batch before rescheduling. */
 const DEFAULT_PURGE_BATCH = 256;
+const MAX_PURGE_BATCH = 500;
+const MAX_IDEMPOTENCY_KEY_LENGTH = 256;
+
+function validateBatch(batch: number): void {
+  if (!Number.isFinite(batch) || !Number.isInteger(batch) || batch < 1 || batch > MAX_PURGE_BATCH) {
+    throw new ConvexError({
+      code: "INVALID_BATCH",
+      message: `batch must be an integer between 1 and ${MAX_PURGE_BATCH}`,
+    });
+  }
+}
 
 export const record = mutation({
   args: {
     subjectRef: v.string(),
     type: v.string(),
     actorRef: v.optional(v.string()),
+    idempotencyKey: v.optional(v.string()),
     metadata: v.optional(jsonValue),
   },
   returns: v.id("events"),
   handler: async (ctx, args) => {
+    if (
+      args.idempotencyKey !== undefined &&
+      (args.idempotencyKey.length === 0 ||
+        args.idempotencyKey.length > MAX_IDEMPOTENCY_KEY_LENGTH)
+    ) {
+      throw new ConvexError({
+        code: "INVALID_IDEMPOTENCY_KEY",
+        message: `idempotencyKey must be between 1 and ${MAX_IDEMPOTENCY_KEY_LENGTH} characters`,
+      });
+    }
+    if (args.idempotencyKey !== undefined) {
+      const existing = await ctx.db
+        .query("events")
+        .withIndex("by_subject_idempotency", (q) =>
+          q.eq("subjectRef", args.subjectRef).eq("idempotencyKey", args.idempotencyKey),
+        )
+        .unique();
+      if (existing !== null) return existing._id;
+    }
     return await ctx.db.insert("events", {
       subjectRef: args.subjectRef,
       type: args.type,
       actorRef: args.actorRef,
+      idempotencyKey: args.idempotencyKey,
       metadata: args.metadata,
       createdAt: Date.now(),
     });
@@ -1006,6 +1061,10 @@ export const purge = mutation({
   handler: async (ctx, args) => {
     const before = args.before;
     const batch = args.batch ?? DEFAULT_PURGE_BATCH;
+    validateBatch(batch);
+    if (before !== undefined && !Number.isFinite(before)) {
+      throw new ConvexError({ code: "INVALID_BEFORE", message: "before must be finite" });
+    }
     const rows = await ctx.db
       .query("events")
       .withIndex("by_subject", (q) => {
@@ -1014,7 +1073,7 @@ export const purge = mutation({
       })
       .take(batch);
     for (const row of rows) {
-      await ctx.db.delete(row._id);
+      await ctx.db.delete("events", row._id);
     }
     if (rows.length === batch) {
       await ctx.scheduler.runAfter(0, api.mutations.purge, {
@@ -1032,11 +1091,17 @@ export const configure = mutation({
   args: { retentionMs: v.optional(v.number()) },
   returns: v.null(),
   handler: async (ctx, args) => {
+    if (args.retentionMs !== undefined && !(args.retentionMs >= 0 && Number.isFinite(args.retentionMs))) {
+      throw new ConvexError({
+        code: "INVALID_RETENTION",
+        message: "retentionMs must be a non-negative finite number",
+      });
+    }
     const existing = await ctx.db.query("config").first();
     if (existing === null) {
       await ctx.db.insert("config", { retentionMs: args.retentionMs });
     } else {
-      await ctx.db.patch(existing._id, { retentionMs: args.retentionMs });
+      await ctx.db.patch("config", existing._id, { retentionMs: args.retentionMs });
     }
     return null;
   },
@@ -1058,13 +1123,14 @@ export const pruneExpired = mutation({
       return 0;
     }
     const batch = args.batch ?? DEFAULT_PURGE_BATCH;
+    validateBatch(batch);
     const cutoff = Date.now() - retentionMs;
     const rows = await ctx.db
       .query("events")
       .withIndex("by_createdAt", (q) => q.lt("createdAt", cutoff))
       .take(batch);
     for (const row of rows) {
-      await ctx.db.delete(row._id);
+      await ctx.db.delete("events", row._id);
     }
     if (rows.length === batch) {
       await ctx.scheduler.runAfter(0, api.mutations.pruneExpired, { batch });
@@ -1080,13 +1146,30 @@ export const pruneExpired = mutation({
 ## src/component/queries.ts
 
 ```ts
-import { v } from "convex/values";
+import { ConvexError, v } from "convex/values";
 import { paginationOptsValidator } from "convex/server";
+import type { Doc } from "./_generated/dataModel";
 import { query } from "./_generated/server";
 import { eventDoc, eventPage, countResult } from "./validators";
 
 /** Default scan bound for a capped `count` before it reports `isExact: false`. */
 const DEFAULT_MAX_COUNT = 1000;
+const MAX_READ_LIMIT = 1000;
+
+function toPublicEvent(event: Doc<"events">): Omit<Doc<"events">, "idempotencyKey"> {
+  const { idempotencyKey: _idempotencyKey, ...publicEvent } = event;
+  return publicEvent;
+}
+
+function validateReadLimit(value: number, name: string, allowZero = false): void {
+  const minimum = allowZero ? 0 : 1;
+  if (!Number.isFinite(value) || !Number.isInteger(value) || value < minimum || value > MAX_READ_LIMIT) {
+    throw new ConvexError({
+      code: "INVALID_LIMIT",
+      message: `${name} must be an integer between ${minimum} and ${MAX_READ_LIMIT}`,
+    });
+  }
+}
 
 export const list = query({
   args: {
@@ -1097,10 +1180,11 @@ export const list = query({
   },
   returns: v.array(eventDoc),
   handler: async (ctx, args) => {
+    validateReadLimit(args.limit, "limit");
     const since = args.since;
     const type = args.type;
     if (type === undefined) {
-      return await ctx.db
+      const rows = await ctx.db
         .query("events")
         .withIndex("by_subject", (q) => {
           const scoped = q.eq("subjectRef", args.subjectRef);
@@ -1108,8 +1192,9 @@ export const list = query({
         })
         .order("desc")
         .take(args.limit);
+      return rows.map(toPublicEvent);
     }
-    return await ctx.db
+    const rows = await ctx.db
       .query("events")
       .withIndex("by_subject_type", (q) => {
         const scoped = q.eq("subjectRef", args.subjectRef).eq("type", type);
@@ -1117,6 +1202,7 @@ export const list = query({
       })
       .order("desc")
       .take(args.limit);
+    return rows.map(toPublicEvent);
   },
 });
 
@@ -1134,10 +1220,11 @@ export const listPaginated = query({
   },
   returns: eventPage,
   handler: async (ctx, args) => {
+    validateReadLimit(args.paginationOpts.numItems, "paginationOpts.numItems");
     const since = args.since;
     const type = args.type;
     if (type === undefined) {
-      return await ctx.db
+      const result = await ctx.db
         .query("events")
         .withIndex("by_subject", (q) => {
           const scoped = q.eq("subjectRef", args.subjectRef);
@@ -1145,8 +1232,9 @@ export const listPaginated = query({
         })
         .order("desc")
         .paginate(args.paginationOpts);
+      return { ...result, page: result.page.map(toPublicEvent) };
     }
-    return await ctx.db
+    const result = await ctx.db
       .query("events")
       .withIndex("by_subject_type", (q) => {
         const scoped = q.eq("subjectRef", args.subjectRef).eq("type", type);
@@ -1154,6 +1242,7 @@ export const listPaginated = query({
       })
       .order("desc")
       .paginate(args.paginationOpts);
+    return { ...result, page: result.page.map(toPublicEvent) };
   },
 });
 
@@ -1172,6 +1261,7 @@ export const count = query({
   handler: async (ctx, args) => {
     const type = args.type;
     const maxCount = args.maxCount ?? DEFAULT_MAX_COUNT;
+    validateReadLimit(maxCount, "maxCount", true);
     const rows =
       type === undefined
         ? await ctx.db
