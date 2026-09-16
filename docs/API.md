@@ -1,6 +1,7 @@
 # API Reference — @vllnt/convex-events
 
-**Compatibility:** `convex@^1.41.0`
+**Compatibility:** `convex@^1.45.0`; React >=18 is optional. This reference
+follows current `@canary`, including per-subject retry keys.
 
 Construct the client with the mounted component and optional config. The client
 is generic over the host's metadata type `TMeta`:
@@ -30,15 +31,18 @@ never inspects them.
 
 ### `record(ctx, subjectRef, type, opts?) → string`
 
-Append an event of `type` for `subjectRef` and return the new event id. The
-component stamps `createdAt` (`Date.now()`) on insert. Before writing, the
-client applies its configured boundary guards (see **Guards** below) — on
+Append an event of `type` for `subjectRef` and return the new or replayed event
+id. The component stamps `createdAt` (`Date.now()`) on insert. Before writing,
+the client applies its configured boundary guards (see **Guards** below) — on
 rejection it throws an `EventValidationError`. `opts`:
 
 - `actorRef?: string` — opaque ref for who caused the event.
-- `idempotencyKey?: string` — opaque per-subject retry key (1–256 characters); while the original
-  event remains retained, a replay returns its ID without inserting or rewriting another row. Purge
-  and retention delete the replay record together with the event.
+- `idempotencyKey?: string` — opaque per-subject retry key (1–256 characters);
+  while the original event remains retained, a replay returns its ID without
+  inserting or rewriting another row. Purge and retention delete the replay
+  record together with the event. The key is not payload-bound: another type or
+  payload with the same subject/key replays the first ID. Invalid keys throw
+  `ConvexError` with `INVALID_IDEMPOTENCY_KEY`.
 - `metadata?: TMeta` — host-owned payload. Omitted ⇒ the field is not stored, so
   it reads back absent (`undefined`) rather than a fake `TMeta` value.
 
@@ -48,22 +52,25 @@ Delete events for `subjectRef` and return how many were deleted **in the first
 batch**. Deletion is batched and self-rescheduling: large feeds drain across
 scheduled follow-up mutations rather than one huge transaction. `opts`:
 
-- `before?: number` — only delete events with `createdAt < before` (a timestamp).
-  Omitted ⇒ delete every event for the subject.
-- `batch?: number` — rows deleted per batch before rescheduling (default `256`).
+- `before?: number` — only delete events with `createdAt < before` (a
+  timestamp). Omitted ⇒ delete every event for the subject.
+- `batch?: number` — rows deleted per batch before rescheduling (default `256`,
+  integer 1–500; otherwise `INVALID_BATCH`). `before` must be finite
+  (`INVALID_BEFORE`).
 
 ### `configure(ctx, retentionMs?) → null`
 
 Set (or clear, by passing `undefined`) the singleton retention window the
 component's internal daily cron prunes against. Without a configured window the
-retention sweep is a no-op — nothing is ever auto-deleted.
+retention sweep is a no-op — nothing is ever auto-deleted. A supplied window
+must be non-negative and finite (`INVALID_RETENTION`).
 
 ### `pruneExpired(ctx, opts?) → number`
 
 Run the retention sweep manually (the same work the daily cron performs): delete
 one batch of events older than the configured window, rescheduling follow-up
 batches. Returns the count deleted in the first batch. A no-op until `configure`
-sets a window. `opts`: `{ batch?: number }` (default `256`).
+sets a window. `opts`: `{ batch?: number }` (default `256`, integer 1–500).
 
 ## Queries
 
@@ -71,15 +78,18 @@ sets a window. `opts`: `{ batch?: number }` (default `256`).
 
 The subject's events, newest-first. `opts`:
 
-- `type?: string` — restrict to one event type (uses the `by_subject_type` index).
+- `type?: string` — restrict to one event type (uses the `by_subject_type`
+  index).
 - `since?: number` — only events with `createdAt >= since`.
 - `limit?: number` — page size; defaults to the client's `defaultLimit` (50).
+  Must be an integer in 1–1000 (`INVALID_LIMIT`).
 
 ### `paginate(ctx, subjectRef, paginationOpts, opts?) → EventPage<TMeta>`
 
 Cursor-paginated feed, newest-first, honoring the same `type` / `since` filters
 as `list`. `paginationOpts` is Convex's `{ cursor, numItems, ... }`
-(`paginationOptsValidator`). Returns Convex's pagination shape
+(`paginationOptsValidator`); `numItems` must be an integer in 1–1000
+(`INVALID_LIMIT`). Returns Convex's pagination shape
 `{ page, isDone, continueCursor }` (plus optional `splitCursor` / `pageStatus`),
 so a host pages past any single-call `limit` by passing `continueCursor` back as
 the next `cursor`.
@@ -91,22 +101,23 @@ A bounded count for `subjectRef` (optionally one `type`). Scans at most
 
 - `type?: string` — restrict to one event type.
 - `maxCount?: number` — scan bound; defaults to the client's `defaultMaxCount`
-  (1000).
+  (1000). Must be an integer in 0–1000 (`INVALID_LIMIT`).
 
 Returns `{ count, isExact }`: `isExact` is `false` when the feed has more events
-than the bound, in which case `count` equals the bound rather than the true total.
+than the bound, in which case `count` equals the bound rather than the true
+total.
 
 ## Guards
 
 When set on the client, these reject malformed input at the `record` boundary by
 throwing an `EventValidationError` (carrying a stable `code`):
 
-| Option | Rejects when | `code` |
-|--------|--------------|--------|
-| `allowedTypes` | `type` not in the allow-list | `EVENTS_TYPE_NOT_ALLOWED` |
-| `maxTypeLength` | `type.length` exceeds the cap | `EVENTS_TYPE_TOO_LONG` |
-| `maxMetadataBytes` | serialized `metadata` exceeds the cap | `EVENTS_METADATA_TOO_LARGE` |
-| `metadataValidator` | the host validator throws | `EVENTS_METADATA_INVALID` |
+| Option              | Rejects when                          | `code`                      |
+| ------------------- | ------------------------------------- | --------------------------- |
+| `allowedTypes`      | `type` not in the allow-list          | `EVENTS_TYPE_NOT_ALLOWED`   |
+| `maxTypeLength`     | `type.length` exceeds the cap         | `EVENTS_TYPE_TOO_LONG`      |
+| `maxMetadataBytes`  | serialized `metadata` exceeds the cap | `EVENTS_METADATA_TOO_LARGE` |
+| `metadataValidator` | the host validator throws             | `EVENTS_METADATA_INVALID`   |
 
 `metadataValidator` may also **transform** the payload (e.g. trim fields); its
 return value is what gets stored. When the validator throws, the original error
