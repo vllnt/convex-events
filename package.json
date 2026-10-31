@@ -1,6 +1,6 @@
 {
   "name": "@vllnt/convex-events",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "Append-only per-subject activity feed and event ledger, as a Convex component",
   "license": "MIT",
   "type": "module",
