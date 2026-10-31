@@ -1,5 +1,5 @@
 import { cronJobs } from "convex/server";
-import { api } from "./_generated/api";
+import { api } from "./_generated/api.js";
 
 /**
  * Component-internal retention sweep. Runs daily and prunes events older than

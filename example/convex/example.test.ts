@@ -548,6 +548,38 @@ describe("events — client default-limit option", () => {
   });
 });
 
+describe("events — empty identifiers and non-finite since", () => {
+  test.each([
+    { subjectRef: "", type: "t" },
+    { subjectRef: "s", type: "" },
+    { subjectRef: "s", type: "t", actorRef: "" },
+  ])("record rejects empty identifiers %j", async (args) => {
+    const t = setup();
+    await expect(t.mutation(api.example.record, args)).rejects.toThrow(/INVALID_ARGUMENT|non-empty/);
+  });
+
+  test("purge rejects an empty subjectRef", async () => {
+    const t = setup();
+    await expect(t.mutation(api.example.purge, { subjectRef: "" })).rejects.toThrow(
+      /INVALID_ARGUMENT|non-empty/,
+    );
+  });
+
+  test.each([Number.NaN, Number.POSITIVE_INFINITY])("list and paginate reject since %s", async (since) => {
+    const t = setup();
+    await expect(
+      t.query(api.example.list, { subjectRef: "s", limit: 1, since }),
+    ).rejects.toThrow(/INVALID_SINCE|finite/);
+    await expect(
+      t.query(api.example.paginate, {
+        subjectRef: "s",
+        since,
+        paginationOpts: { cursor: null, numItems: 1 },
+      }),
+    ).rejects.toThrow(/INVALID_SINCE|finite/);
+  });
+});
+
 describe("events — read bounds", () => {
   test.each([Number.NaN, 0, -1, 1.5, 1001])("list rejects invalid limit %s", async (limit) => {
     const t = setup();

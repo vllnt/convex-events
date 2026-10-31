@@ -1,8 +1,8 @@
 import { ConvexError, v } from "convex/values";
 import { paginationOptsValidator } from "convex/server";
-import type { Doc } from "./_generated/dataModel";
-import { query } from "./_generated/server";
-import { eventDoc, eventPage, countResult } from "./validators";
+import type { Doc } from "./_generated/dataModel.js";
+import { query } from "./_generated/server.js";
+import { eventDoc, eventPage, countResult } from "./validators.js";
 
 /** Default scan bound for a capped `count` before it reports `isExact: false`. */
 const DEFAULT_MAX_COUNT = 1000;
@@ -23,6 +23,12 @@ function validateReadLimit(value: number, name: string, allowZero = false): void
   }
 }
 
+function validateSince(since: number | undefined): void {
+  if (since !== undefined && !Number.isFinite(since)) {
+    throw new ConvexError({ code: "INVALID_SINCE", message: "since must be finite" });
+  }
+}
+
 export const list = query({
   args: {
     subjectRef: v.string(),
@@ -33,6 +39,7 @@ export const list = query({
   returns: v.array(eventDoc),
   handler: async (ctx, args) => {
     validateReadLimit(args.limit, "limit");
+    validateSince(args.since);
     const since = args.since;
     const type = args.type;
     if (type === undefined) {
@@ -73,6 +80,7 @@ export const listPaginated = query({
   returns: eventPage,
   handler: async (ctx, args) => {
     validateReadLimit(args.paginationOpts.numItems, "paginationOpts.numItems");
+    validateSince(args.since);
     const since = args.since;
     const type = args.type;
     if (type === undefined) {
