@@ -4,32 +4,26 @@ All notable changes to this project are documented here. The format is based on
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and this project adheres to
 [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [Unreleased]
+## [0.1.1] - Unreleased
 
 ### Fixed
 
-- Reject unsafe purge/prune batches, non-finite cutoffs, and negative or non-finite retention
-  windows before they can trigger scheduler loops or destructive retention.
-- Bound and validate list/count controls so malformed values cannot produce invalid results or
-  caller-controlled read amplification.
-- Add optional per-subject idempotency keys so ambiguous host retries replay the original event ID
-  instead of duplicating ledger entries.
+- The published tarball no longer includes the React test file.
+- `record` rejects an empty `subjectRef`, `type` or supplied `actorRef`, and `purge` an empty
+  `subjectRef`, with `ConvexError({ code: "INVALID_ARGUMENT" })`.
+- `list` and `paginate` reject a non-finite `since` with `ConvexError({ code: "INVALID_SINCE" })`.
+- `@vllnt/convex-events/test` now type-checks under `moduleResolution: nodenext`
+  (explicit `.js` relative imports, Vite client types referenced).
 
 ### Changed
 
-- Treat Convex `_generated` output as CLI-owned, exclude it from formatting, and expose a
-  dedicated codegen script.
-- Refresh all direct dependencies to their latest compatible releases for canary validation.
-- Require `convex@^1.45.0` and update `convex-test` to `^0.0.56`.
+- Upgrade dev tooling (vitest 5, vite 8.3, convex 1.48, convex-test 0.0.65, prettier 3.9.10) and
+  override the vulnerable transitive `handlebars` and `deepmerge-ts` releases.
+- Adopt pnpm 10 with a release-age gate; releases are published only from CI with npm
+  trusted publishing and provenance.
+- Document the component error codes and how to use `/test` in a consuming app.
 
-### Fixed
-
-- `metadataValidator` errors are now wrapped as `EventValidationError` with code
-  `EVENTS_METADATA_INVALID` (preserving the original message), making the error
-  contract real and catchable by consumers. Previously the host's plain `Error`
-  surfaced unwrapped, so `EVENTS_METADATA_INVALID` was never thrown.
-
-## [0.1.0] - 2026-06-12
+## [0.1.0] - 2026-09-01
 
 ### Added
 
@@ -57,3 +51,19 @@ All notable changes to this project are documented here. The format is based on
 - `EventDoc.metadata` is now optional (`metadata?: TMeta`) — an event recorded
   without metadata round-trips as absent, so the shape never lies to a host with
   a non-nullable `TMeta`.
+- Treat Convex `_generated` output as CLI-owned, exclude it from formatting, and expose a
+  dedicated codegen script.
+- Require `convex@^1.45.0` and update `convex-test` to `^0.0.56`.
+
+### Fixed
+
+- Reject unsafe purge/prune batches, non-finite cutoffs, and negative or non-finite retention
+  windows before they can trigger scheduler loops or destructive retention.
+- Bound and validate list/count controls so malformed values cannot produce invalid results or
+  caller-controlled read amplification.
+- Add optional per-subject idempotency keys so ambiguous host retries replay the original event ID
+  instead of duplicating ledger entries.
+- `metadataValidator` errors are now wrapped as `EventValidationError` with code
+  `EVENTS_METADATA_INVALID` (preserving the original message), making the error
+  contract real and catchable by consumers. Previously the host's plain `Error`
+  surfaced unwrapped, so `EVENTS_METADATA_INVALID` was never thrown.

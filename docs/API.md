@@ -36,7 +36,9 @@ id. The component stamps `createdAt` (`Date.now()`) on insert. Before writing,
 the client applies its configured boundary guards (see **Guards** below) — on
 rejection it throws an `EventValidationError`. `opts`:
 
-- `actorRef?: string` — opaque ref for who caused the event.
+- `actorRef?: string` — opaque ref for who caused the event. If supplied it must
+  be non-empty; `subjectRef` and `type` must be non-empty too, otherwise
+  `ConvexError` with `INVALID_ARGUMENT`.
 - `idempotencyKey?: string` — opaque per-subject retry key (1–256 UTF-16 code
   units); while the original event remains retained, a replay returns its ID
   without inserting or rewriting another row. Purge and retention delete the
@@ -56,7 +58,7 @@ scheduled follow-up mutations rather than one huge transaction. `opts`:
   timestamp). Omitted ⇒ delete every event for the subject.
 - `batch?: number` — rows deleted per batch before rescheduling (default `256`,
   integer 1–500; otherwise `INVALID_BATCH`). `before` must be finite
-  (`INVALID_BEFORE`).
+  (`INVALID_BEFORE`). An empty `subjectRef` throws `INVALID_ARGUMENT`.
 
 ### `configure(ctx, retentionMs?) → null`
 
@@ -80,7 +82,8 @@ The subject's events, newest-first. `opts`:
 
 - `type?: string` — restrict to one event type (uses the `by_subject_type`
   index).
-- `since?: number` — only events with `createdAt >= since`.
+- `since?: number` — only events with `createdAt >= since`. Must be finite
+  (`INVALID_SINCE`).
 - `limit?: number` — page size; defaults to the client's `defaultLimit` (50).
   Must be an integer in 1–1000 (`INVALID_LIMIT`).
 
@@ -106,6 +109,20 @@ A bounded count for `subjectRef` (optionally one `type`). Scans at most
 Returns `{ count, isExact }`: `isExact` is `false` when the feed has more events
 than the bound, in which case `count` equals the bound rather than the true
 total.
+
+## Component errors
+
+Coded `ConvexError`s thrown by the component (`error.data.code`):
+
+| Code                      | Thrown by                       | Meaning                                                 |
+| ------------------------- | ------------------------------- | ------------------------------------------------------- |
+| `INVALID_ARGUMENT`        | `record`, `purge`               | `subjectRef`, `type` or a supplied `actorRef` is empty. |
+| `INVALID_BATCH`           | `purge`, `pruneExpired`         | Batch must be an integer from 1-500.                    |
+| `INVALID_BEFORE`          | `purge`                         | The cutoff must be finite.                              |
+| `INVALID_IDEMPOTENCY_KEY` | `record`                        | Key must be 1-256 characters.                           |
+| `INVALID_LIMIT`           | `list`, `paginate`, `count`     | Limit, `numItems` or `maxCount` is out of range.        |
+| `INVALID_RETENTION`       | `configure`                     | Retention must be non-negative and finite.              |
+| `INVALID_SINCE`           | `list`, `paginate`              | `since` must be finite.                                 |
 
 ## Guards
 

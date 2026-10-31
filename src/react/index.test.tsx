@@ -13,7 +13,7 @@ import {
   useEventCount,
   type ActivityFeedRef,
   type EventCountRef,
-} from "./index";
+} from "./index.js";
 
 vi.mock("convex/react", () => ({
   useQuery: vi.fn(),

@@ -1,6 +1,6 @@
 import { defineSchema, defineTable } from "convex/server";
 import { v } from "convex/values";
-import { jsonValue } from "./validators";
+import { jsonValue } from "./validators.js";
 
 /**
  * Sandboxed tables — the activity ledger's own concern. `subjectRef` and

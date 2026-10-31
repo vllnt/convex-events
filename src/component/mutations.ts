@@ -1,7 +1,7 @@
 import { ConvexError, v } from "convex/values";
-import { mutation } from "./_generated/server";
-import { api } from "./_generated/api";
-import { jsonValue } from "./validators";
+import { mutation } from "./_generated/server.js";
+import { api } from "./_generated/api.js";
+import { jsonValue } from "./validators.js";
 
 /** Default number of rows deleted per `purge` / prune batch before rescheduling. */
 const DEFAULT_PURGE_BATCH = 256;
@@ -17,6 +17,18 @@ function validateBatch(batch: number): void {
   }
 }
 
+/** Reject empty identifiers: an empty ref or type would store a meaningless ledger row. */
+function assertNonEmpty(fields: Record<string, string | undefined>): void {
+  for (const [name, value] of Object.entries(fields)) {
+    if (value === "") {
+      throw new ConvexError({
+        code: "INVALID_ARGUMENT",
+        message: `${name} must be non-empty`,
+      });
+    }
+  }
+}
+
 export const record = mutation({
   args: {
     subjectRef: v.string(),
@@ -27,6 +39,7 @@ export const record = mutation({
   },
   returns: v.id("events"),
   handler: async (ctx, args) => {
+    assertNonEmpty({ subjectRef: args.subjectRef, type: args.type, actorRef: args.actorRef });
     if (
       args.idempotencyKey !== undefined &&
       (args.idempotencyKey.length === 0 ||
@@ -70,6 +83,7 @@ export const purge = mutation({
   },
   returns: v.number(),
   handler: async (ctx, args) => {
+    assertNonEmpty({ subjectRef: args.subjectRef });
     const before = args.before;
     const batch = args.batch ?? DEFAULT_PURGE_BATCH;
     validateBatch(batch);
