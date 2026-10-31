@@ -8,6 +8,7 @@ All notable changes to this project are documented here. The format is based on
 
 ### Fixed
 
+- The published tarball no longer includes the React test file.
 - `record` rejects an empty `subjectRef`, `type` or supplied `actorRef`, and `purge` an empty
   `subjectRef`, with `ConvexError({ code: "INVALID_ARGUMENT" })`.
 - `list` and `paginate` reject a non-finite `since` with `ConvexError({ code: "INVALID_SINCE" })`.
