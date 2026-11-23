@@ -558,6 +558,30 @@ describe("events — empty identifiers and non-finite since", () => {
     await expect(t.mutation(api.example.record, args)).rejects.toThrow(/INVALID_ARGUMENT|non-empty/);
   });
 
+  test.each([
+    { subjectRef: "s".repeat(513), type: "t" },
+    { subjectRef: "s", type: "t".repeat(513) },
+    { subjectRef: "s", type: "t", actorRef: "a".repeat(513) },
+  ])("record rejects identifiers over 512 characters", async (args) => {
+    const t = setup();
+    await expect(t.mutation(api.example.record, args)).rejects.toThrow(/INVALID_ARGUMENT|at most 512/);
+    expect(await t.query(api.example.list, { subjectRef: args.subjectRef })).toHaveLength(0);
+  });
+
+  test("record accepts identifiers of exactly 512 characters", async () => {
+    const t = setup();
+    const subjectRef = "s".repeat(512);
+    await t.mutation(api.example.record, { subjectRef, type: "t".repeat(512), actorRef: "a".repeat(512) });
+    expect(await t.query(api.example.list, { subjectRef })).toHaveLength(1);
+  });
+
+  test("purge rejects a subjectRef over 512 characters", async () => {
+    const t = setup();
+    await expect(t.mutation(api.example.purge, { subjectRef: "s".repeat(513) })).rejects.toThrow(
+      /INVALID_ARGUMENT|at most 512/,
+    );
+  });
+
   test("purge rejects an empty subjectRef", async () => {
     const t = setup();
     await expect(t.mutation(api.example.purge, { subjectRef: "" })).rejects.toThrow(
