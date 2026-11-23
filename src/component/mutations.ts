@@ -7,6 +7,7 @@ import { jsonValue } from "./validators.js";
 const DEFAULT_PURGE_BATCH = 256;
 const MAX_PURGE_BATCH = 500;
 const MAX_IDEMPOTENCY_KEY_LENGTH = 256;
+const MAX_REF_LENGTH = 512;
 
 function validateBatch(batch: number): void {
   if (!Number.isFinite(batch) || !Number.isInteger(batch) || batch < 1 || batch > MAX_PURGE_BATCH) {
@@ -24,6 +25,12 @@ function assertNonEmpty(fields: Record<string, string | undefined>): void {
       throw new ConvexError({
         code: "INVALID_ARGUMENT",
         message: `${name} must be non-empty`,
+      });
+    }
+    if (value !== undefined && value.length > MAX_REF_LENGTH) {
+      throw new ConvexError({
+        code: "INVALID_ARGUMENT",
+        message: `${name} must be at most ${MAX_REF_LENGTH} characters`,
       });
     }
   }

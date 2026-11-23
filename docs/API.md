@@ -116,7 +116,7 @@ Coded `ConvexError`s thrown by the component (`error.data.code`):
 
 | Code                      | Thrown by                       | Meaning                                                 |
 | ------------------------- | ------------------------------- | ------------------------------------------------------- |
-| `INVALID_ARGUMENT`        | `record`, `purge`               | `subjectRef`, `type` or a supplied `actorRef` is empty. |
+| `INVALID_ARGUMENT`        | `record`, `purge`               | `subjectRef`, `type` or a supplied `actorRef` is empty or over 512 characters. |
 | `INVALID_BATCH`           | `purge`, `pruneExpired`         | Batch must be an integer from 1-500.                    |
 | `INVALID_BEFORE`          | `purge`                         | The cutoff must be finite.                              |
 | `INVALID_IDEMPOTENCY_KEY` | `record`                        | Key must be 1-256 characters.                           |

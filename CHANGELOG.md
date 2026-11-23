@@ -8,6 +8,8 @@ All notable changes to this project are documented here. The format is based on
 
 ### Fixed
 
+- `record` and `purge` reject a `subjectRef`, `type` or `actorRef` over 512 characters with
+  `ConvexError({ code: "INVALID_ARGUMENT" })`, so oversized refs never reach storage or indexes.
 - The published tarball no longer includes the React test file.
 - `record` rejects an empty `subjectRef`, `type` or supplied `actorRef`, and `purge` an empty
   `subjectRef`, with `ConvexError({ code: "INVALID_ARGUMENT" })`.
