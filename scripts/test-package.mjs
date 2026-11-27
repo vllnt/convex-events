@@ -22,8 +22,8 @@ const REQUIRED = [
 // Everything that may ship. Anything else (AGENTS.md, roadmaps, scripts/, example/, other
 // docs/ files) fails, so a widened "files" entry cannot leak repository-only content.
 const ALLOWED =
-  /^(package\.json|README\.md|LICENSE|CHANGELOG\.md|llms\.txt|docs\/API\.md|dist\/.+|src\/.+)$/;
-const TEST_FILE = /(^|\/)__tests__\/|\.(test|spec)\.[cm]?[jt]sx?$/;
+  /^(package\.json|README\.md|LICENSE|CHANGELOG\.md|llms\.txt|docs\/API\.md|dist\/.+\.(js|d\.ts)(\.map)?|src\/.+\.tsx?)$/;
+const TEST_FILE = /(^|\/)__tests__\/|\.(test|spec|test-d|bench)\.[cm]?[jt]sx?$/;
 
 // A link to this repository on GitHub, any branch or tag: captures the file path.
 const GITHUB_FILE =

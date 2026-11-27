@@ -211,8 +211,12 @@ import { register } from "@vllnt/convex-events/test";
 import schema from "./schema";
 
 const t = convexTest(schema, import.meta.glob("./**/*.ts"));
-register(t);
+register(t as unknown as Parameters<typeof register>[0]);
 ```
+
+In this version `register` types `t` against the component's own schema, so
+TypeScript rejects a `t` built from a host schema that has tables. Cast it as
+shown; the cast changes only the type, not what is registered.
 
 ## Related packages
 
