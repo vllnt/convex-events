@@ -104,6 +104,12 @@ Update the `llms.txt` summary by hand after any source, README, or API.md change
 `pnpm generate:llms` (it only checks `llms.txt`; it generates nothing). Grep stale values before
 committing.
 
+`README.md`, `docs/API.md`, `CHANGELOG.md` and `llms.txt` ship in the npm tarball (`package.json`
+`files`), so consumers and their coding agents read them from `node_modules`. Link shipped files
+from `llms.txt` relatively (`./docs/API.md`); link repository-only files by GitHub URL. Do not
+ship `AGENTS.md`, tests or other `docs/` files. `pnpm test:package` (run after `pnpm build`, and
+in CI) enforces this.
+
 ## Generated code
 
 - Every `**/_generated/**` file is owned exclusively by Convex CLI codegen.

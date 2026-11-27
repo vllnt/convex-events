@@ -3,9 +3,9 @@
 > Append-only per-subject activity feed and event ledger, as a Convex component
 
 `@vllnt/convex-events` is a publishable Convex component. It targets `convex@^1.45.0`.
-It stores two sandboxed tables - `events` (`subjectRef`, `type`, optional `actorRef`, opaque `metadata`, `createdAt`), indexed `by_subject`, `by_subject_type`, and `by_createdAt`; and a singleton `config` (`retentionMs?`). `record` appends an event (stamping `createdAt`); `list` reads a subject's feed newest-first (with optional `type` / `since` / `limit`), `paginate` returns Convex's cursor page `{ page, isDone, continueCursor }`, and `count` returns a bounded `{ count, isExact }` (scans at most `maxCount + 1` rows). `purge` drops a subject's events in self-rescheduling batches (all, or only those before a cutoff). `configure` sets a `retentionMs` window that an internal idempotent daily cron prunes against (`pruneExpired`). The client is generic over the host's metadata type and applies optional boundary guards (`allowedTypes`, `maxTypeLength`, `maxMetadataBytes`, `metadataValidator`) that throw a code-tagged `EventValidationError`. The host owns the subject, actor, auth, and meaning; the component owns only the ordered event store.
+It stores two sandboxed tables - `events` (`subjectRef`, `type`, optional `actorRef`, optional `idempotencyKey`, opaque `metadata`, `createdAt`), indexed `by_subject`, `by_subject_idempotency`, `by_subject_type`, and `by_createdAt`; and a singleton `config` (`retentionMs?`). `record` appends an event (stamping `createdAt`); `list` reads a subject's feed newest-first (with optional `type` / `since` / `limit`), `paginate` returns Convex's cursor page `{ page, isDone, continueCursor }`, and `count` returns a bounded `{ count, isExact }` (scans at most `maxCount + 1` rows). `purge` drops a subject's events in self-rescheduling batches (all, or only those before a cutoff). `configure` sets a `retentionMs` window that an internal idempotent daily cron prunes against (`pruneExpired`). The client is generic over the host's metadata type and applies optional boundary guards (`allowedTypes`, `maxTypeLength`, `maxMetadataBytes`, `metadataValidator`) that throw a code-tagged `EventValidationError`. The host owns the subject, actor, auth, and meaning; the component owns only the ordered event store.
 
-The current `@canary` surface supports `record` option `idempotencyKey`
+`record` accepts the option `idempotencyKey`
 (1–256 UTF-16 code units): retained keys replay the first ID per subject, even
 with a different payload/type. Purge and retention remove that protection.
 Client defaults are list limit 50 and count bound 1000; list/page sizes must be
@@ -14,21 +14,33 @@ opt-in. Purge/prune batches default to 256 (integer 1–500). Retention is off u
 configured; its window must be non-negative and finite. Named mounts isolate
 feeds and maintenance. React >=18 is optional; Convex is required.
 
+## For coding agents
+
+This package bundles its docs, and they match the installed version. Read them before writing
+code: `node_modules/@vllnt/convex-events/docs/API.md` (API reference), with `README.md`,
+`CHANGELOG.md` and this file at the package root. The TypeScript source is in
+`node_modules/@vllnt/convex-events/src/`.
+
 ## Docs
 
-- [README](README.md): Project overview, installation, usage examples, architecture
-- [API Reference](docs/API.md): Public class methods, return shapes, input validation
-- [Changelog](CHANGELOG.md): Version history and release notes
-- [Contributing](CONTRIBUTING.md): Development setup, validation commands, release workflow
+- [README](./README.md): Project overview, installation, usage examples, architecture
+- [API Reference](./docs/API.md): Public class methods, return shapes, input validation
+- [Changelog](./CHANGELOG.md): Version history and release notes
 
 ## Examples
 
-- [Example component wrapper](example/convex/example.ts): Host-app wrapper functions
-- [Example tests](example/convex/example.test.ts): End-to-end usage coverage with `convex-test`
+Repository files, not bundled in the package; they track `main`.
+
+- [Example component wrapper](https://github.com/vllnt/convex-events/blob/main/example/convex/example.ts): Host-app wrapper functions
+- [Example tests](https://github.com/vllnt/convex-events/blob/main/example/convex/example.test.ts): End-to-end usage coverage with `convex-test`
 
 ## Optional
 
-- [AGENTS](AGENTS.md): Canonical agent instructions for this repository
-- [Security Policy](SECURITY.md): Vulnerability reporting policy
-- [Code of Conduct](CODE_OF_CONDUCT.md): Community participation guidelines
-- [License](LICENSE): MIT license
+- [Contributing](https://github.com/vllnt/convex-events/blob/main/CONTRIBUTING.md): Development setup, validation commands, release workflow (repository only)
+- [Security Policy](https://github.com/vllnt/convex-events/blob/main/SECURITY.md): Vulnerability reporting policy (repository only)
+- [Code of Conduct](https://github.com/vllnt/convex-events/blob/main/CODE_OF_CONDUCT.md): Community participation guidelines (repository only)
+- [License](./LICENSE): MIT license
+
+## Ecosystem
+
+- [vllnt oss](https://oss.vllnt.com/llms.txt): Index of the other vllnt open-source packages
