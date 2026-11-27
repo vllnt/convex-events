@@ -25,8 +25,9 @@ const feed = await events.list(ctx, subjectRef, { limit: 20 });
   newest-first.
 - **Cursor pagination** — `paginate` returns Convex's
   `{ page, isDone, continueCursor }`.
-- **Type filter & since filter** — narrow a feed (or count) to one `type`, or
-  page forward from a timestamp.
+- **Type filter & since filter** — narrow a feed (or count) to one `type`; `list`
+  and `paginate` can also keep only events with `createdAt >= since`
+  (still newest-first).
 - **Bounded count** — scans at most `maxCount + 1` rows and reports
   `{ count, isExact }`.
 - **Batched purge + retention cron** — drains large feeds in self-rescheduling
@@ -43,8 +44,8 @@ pnpm add @vllnt/convex-events
 ```
 
 Node.js >=18; required peer: `convex@^1.45.0`. React >=18 is optional. The
-default npm channel is stable; install `@vllnt/convex-events@canary` for the
-current prerelease surface documented here, including `idempotencyKey`.
+default npm channel is stable; `@vllnt/convex-events@canary` is built from
+`main`.
 
 ## For coding agents
 
@@ -230,7 +231,7 @@ register(t);
 
 ## Contributing
 
-See [CONTRIBUTING.md](CONTRIBUTING.md).
+See [CONTRIBUTING.md](https://github.com/vllnt/convex-events/blob/main/CONTRIBUTING.md).
 
 ## Author
 

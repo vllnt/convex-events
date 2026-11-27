@@ -36,8 +36,8 @@ All notable changes to this project are documented here. The format is based on
 - `package.json` `homepage` is now `https://oss.vllnt.com/packages/convex-events`, with more
   `keywords`.
 - The publish workflow publishes a canary (under `@canary` only, never `@latest`) on every push
-  to `main` that changes the package source, `package.json`, the lockfile or a shipped doc; the
-  `CANARY_ENABLED` repository variable no longer gates it.
+  to `main` that changes the package source, `package.json`, the lockfile or a shipped doc; a
+  repository variable no longer gates it.
 
 ## [0.1.0] - 2026-09-01
 

@@ -37,6 +37,9 @@ never inspects them.
 | `@vllnt/convex-events/test`                 | `register`                                                                                                                                                                     |
 | `@vllnt/convex-events/_generated/component` | types only: `ComponentApi`                                                                                                                                                     |
 
+`./convex.config.js` and `./_generated/component.js` are aliases of the rows
+above, and `./package.json` is exported as-is.
+
 ## Mutations
 
 ### `record(ctx, subjectRef, type, opts?) → string`
@@ -149,13 +152,16 @@ throwing an `EventValidationError` (carrying a stable `code`):
 | `metadataValidator` | the host validator throws             | `EVENTS_METADATA_INVALID`   |
 
 `metadataValidator` may also **transform** the payload (e.g. trim fields); its
-return value is what gets stored. When the validator throws, the original error
-message is preserved in the `EventValidationError`.
+return value is what gets stored. When the validator throws an `Error`, its
+message is preserved in the `EventValidationError`; any other thrown value gives
+the message `metadata validation failed`.
 
 Guards run in the order `allowedTypes`, `maxTypeLength`, `metadataValidator`,
 `maxMetadataBytes`; the first failure throws. `metadataValidator` and
 `maxMetadataBytes` run only when `metadata` is supplied, and the byte cap is
-measured on the validator's return value.
+measured on the validator's return value as the UTF-8 byte length of
+`JSON.stringify(metadata)` (a value `JSON.stringify` cannot serialize, such as a
+`bigint`, throws its own `TypeError`).
 
 ## React
 

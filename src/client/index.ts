@@ -178,7 +178,7 @@ export class Events<TMeta = unknown> {
   /**
    * Append an event of `type` for `subjectRef`. Returns the new event id.
    * Applies the configured boundary guards (`allowedTypes`, `maxTypeLength`,
-   * `maxMetadataBytes`, `metadataValidator`) before writing — throws an
+   * `metadataValidator`, `maxMetadataBytes`, in that order) before writing — throws an
    * {@link EventValidationError} on rejection.
    */
   record(

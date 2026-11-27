@@ -19,15 +19,15 @@ const REQUIRED = [
   "src/test.ts",
 ];
 
-/** [pattern, why it must not ship] */
-const FORBIDDEN = [
-  [/(^|\/)(AGENTS|CLAUDE)\.md$/, "contributor agent instructions"],
-  [/\.(test|spec)\.[cm]?[jt]sx?$/, "test or spec file"],
-  [/^(example|scripts|tests?|\.github)\//, "repository-only directory"],
-  [/^docs\/(?!API\.md$)/, "internal doc (only docs/API.md ships)"],
-];
+// Everything that may ship. Anything else (AGENTS.md, roadmaps, scripts/, example/, other
+// docs/ files) fails, so a widened "files" entry cannot leak repository-only content.
+const ALLOWED =
+  /^(package\.json|README\.md|LICENSE|CHANGELOG\.md|llms\.txt|docs\/API\.md|dist\/.+|src\/.+)$/;
+const TEST_FILE = /(^|\/)__tests__\/|\.(test|spec)\.[cm]?[jt]sx?$/;
 
-const GITHUB_MAIN = "https://github.com/vllnt/convex-events/blob/main/";
+// A link to this repository on GitHub, any branch or tag: captures the file path.
+const GITHUB_FILE =
+  /^https:\/\/github\.com\/vllnt\/convex-events\/(?:blob|tree)\/[^/]+\/([^#?]+)/;
 
 const output = execFileSync(
   "npm",
@@ -46,22 +46,29 @@ for (const path of REQUIRED) {
 }
 
 for (const path of packed) {
-  for (const [pattern, why] of FORBIDDEN) {
-    if (pattern.test(path)) problems.push(`must not ship: ${path} (${why})`);
+  if (TEST_FILE.test(path)) problems.push(`must not ship: ${path} (test file)`);
+  else if (!ALLOWED.test(path)) {
+    problems.push(`must not ship: ${path} (not a published file)`);
   }
 }
 
 const llms = readFileSync("llms.txt", "utf8");
-for (const [, target] of llms.matchAll(/\]\(([^)\s]+)\)/g)) {
-  if (target.startsWith(GITHUB_MAIN)) {
-    const path = target.slice(GITHUB_MAIN.length);
-    if (packed.has(path)) {
+// Inline links `[text](target)`, reference links `[id]: target` and autolinks `<target>`.
+const targets = [
+  ...llms.matchAll(/\]\(\s*<?([^)\s>]+)>?[^)]*\)/g),
+  ...llms.matchAll(/^\s*\[[^\]]+\]:\s*<?(\S+?)>?(?:\s|$)/gm),
+  ...llms.matchAll(/<((?:\.{0,2}\/|https?:)[^>\s]+)>/g),
+].map((match) => match[1]);
+for (const target of targets) {
+  const github = GITHUB_FILE.exec(target);
+  if (github) {
+    if (packed.has(github[1])) {
       problems.push(
-        `llms.txt links shipped file ${path} by GitHub URL; use ./${path}`,
+        `llms.txt links shipped file ${github[1]} by GitHub URL; use ./${github[1]}`,
       );
     }
   } else if (!/^[a-z][a-z0-9+.-]*:/i.test(target)) {
-    const path = target.split("#")[0].replace(/^\.\//, "");
+    const path = target.split(/[#?]/)[0].replace(/^\.\//, "");
     if (!target.startsWith("./") || !packed.has(path)) {
       problems.push(
         `llms.txt links ${target}, which must be ./<path> to a file in the tarball`,
