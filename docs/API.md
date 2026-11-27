@@ -1,7 +1,7 @@
 # API Reference — @vllnt/convex-events
 
-**Compatibility:** `convex@^1.45.0`; React >=18 is optional. This reference
-follows current `@canary`, including per-subject retry keys.
+**Compatibility:** `convex@^1.45.0`; React >=18 is optional. This reference is
+bundled in the package and describes the installed version.
 
 Construct the client with the mounted component and optional config. The client
 is generic over the host's metadata type `TMeta`:
@@ -26,6 +26,19 @@ const events = new Events<Meta>(components.events, {
 All methods take the host `ctx` (a query or mutation context) as the first
 argument. `subjectRef` and `actorRef` are opaque host strings — the component
 never inspects them.
+
+## Entry points
+
+| Import                                      | Exports                                                                                                                                                                        |
+| ------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `@vllnt/convex-events`                      | `Events`, `EventValidationError`, `EVENT_ERROR_CODES`; types `EventsComponent`, `EventsOptions`, `EventDoc`, `EventPage`, `CountResult`, `MetadataValidator`, `EventErrorCode` |
+| `@vllnt/convex-events/convex.config`        | default export: the component definition, mounted with `app.use(events)` (or `app.use(events, { name })` for several mounts)                                                   |
+| `@vllnt/convex-events/react`                | `useActivityFeed`, `useEventCount`; types `ActivityFeedRef`, `EventCountRef`, `CountResult`                                                                                    |
+| `@vllnt/convex-events/test`                 | `register`                                                                                                                                                                     |
+| `@vllnt/convex-events/_generated/component` | types only: `ComponentApi`                                                                                                                                                     |
+
+`./convex.config.js` and `./_generated/component.js` are aliases of the rows
+above, and `./package.json` is exported as-is.
 
 ## Mutations
 
@@ -72,7 +85,9 @@ must be non-negative and finite (`INVALID_RETENTION`).
 Run the retention sweep manually (the same work the daily cron performs): delete
 one batch of events older than the configured window, rescheduling follow-up
 batches. Returns the count deleted in the first batch. A no-op until `configure`
-sets a window. `opts`: `{ batch?: number }` (default `256`, integer 1–500).
+sets a window. `opts`: `{ batch?: number }` (default `256`, integer 1–500;
+checked only once a window is set, so an invalid `batch` is ignored before
+then).
 
 ## Queries
 
@@ -114,15 +129,15 @@ total.
 
 Coded `ConvexError`s thrown by the component (`error.data.code`):
 
-| Code                      | Thrown by                       | Meaning                                                 |
-| ------------------------- | ------------------------------- | ------------------------------------------------------- |
-| `INVALID_ARGUMENT`        | `record`, `purge`               | `subjectRef`, `type` or a supplied `actorRef` is empty. |
-| `INVALID_BATCH`           | `purge`, `pruneExpired`         | Batch must be an integer from 1-500.                    |
-| `INVALID_BEFORE`          | `purge`                         | The cutoff must be finite.                              |
-| `INVALID_IDEMPOTENCY_KEY` | `record`                        | Key must be 1-256 characters.                           |
-| `INVALID_LIMIT`           | `list`, `paginate`, `count`     | Limit, `numItems` or `maxCount` is out of range.        |
-| `INVALID_RETENTION`       | `configure`                     | Retention must be non-negative and finite.              |
-| `INVALID_SINCE`           | `list`, `paginate`              | `since` must be finite.                                 |
+| Code                      | Thrown by                   | Meaning                                                 |
+| ------------------------- | --------------------------- | ------------------------------------------------------- |
+| `INVALID_ARGUMENT`        | `record`, `purge`           | `subjectRef`, `type` or a supplied `actorRef` is empty. |
+| `INVALID_BATCH`           | `purge`, `pruneExpired`     | Batch must be an integer from 1-500.                    |
+| `INVALID_BEFORE`          | `purge`                     | The cutoff must be finite.                              |
+| `INVALID_IDEMPOTENCY_KEY` | `record`                    | Key must be 1-256 UTF-16 code units.                    |
+| `INVALID_LIMIT`           | `list`, `paginate`, `count` | Limit, `numItems` or `maxCount` is out of range.        |
+| `INVALID_RETENTION`       | `configure`                 | Retention must be non-negative and finite.              |
+| `INVALID_SINCE`           | `list`, `paginate`          | `since` must be finite.                                 |
 
 ## Guards
 
@@ -137,8 +152,46 @@ throwing an `EventValidationError` (carrying a stable `code`):
 | `metadataValidator` | the host validator throws             | `EVENTS_METADATA_INVALID`   |
 
 `metadataValidator` may also **transform** the payload (e.g. trim fields); its
-return value is what gets stored. When the validator throws, the original error
-message is preserved in the `EventValidationError`.
+return value is what gets stored. When the validator throws an `Error`, its
+message is preserved in the `EventValidationError`; any other thrown value gives
+the message `metadata validation failed`.
+
+Guards run in the order `allowedTypes`, `maxTypeLength`, `metadataValidator`,
+`maxMetadataBytes`; the first failure throws. `metadataValidator` and
+`maxMetadataBytes` run only when `metadata` is supplied, and the byte cap is
+measured on the validator's return value as the UTF-8 byte length of
+`JSON.stringify(metadata)` (a value `JSON.stringify` cannot serialize, such as a
+`bigint`, throws its own `TypeError`).
+
+## React
+
+Optional entry `@vllnt/convex-events/react`; `react` is an optional peer. The
+hooks take the host's own re-exported public query refs; the component never
+imports the host `api`.
+
+### `useActivityFeed(paginateRef, args, { initialNumItems })`
+
+Wraps `usePaginatedQuery`. `paginateRef` is an `ActivityFeedRef`: a public query
+taking `{ subjectRef, type?, paginationOpts }` and returning a Convex page.
+`args` is `{ subjectRef, type? }`; the hook manages `paginationOpts`. Returns
+the `usePaginatedQuery` result (`results`, `status`, `loadMore`, ...).
+
+### `useEventCount(countRef, { subjectRef, type? }) → CountResult | undefined`
+
+Wraps `useQuery`. `countRef` is an `EventCountRef`: a public query taking
+`{ subjectRef, type? }` and returning `{ count, isExact }`. Returns `undefined`
+while loading.
+
+## Test helper
+
+`register(t, name = "events")` from `@vllnt/convex-events/test` mounts the
+component in a `convex-test` instance (`t.registerComponent`). The consuming app
+needs `convex-test` and a Vite-based runner, because the helper uses
+`import.meta.glob`.
+
+In this version `register` types `t` against the component's own schema, so
+TypeScript rejects a `t` built from a host schema that has tables. Cast it:
+`register(t as unknown as Parameters<typeof register>[0])`; the cast changes only the type, not what is registered.
 
 ## Types
 
@@ -193,6 +246,12 @@ interface EventsOptions<TMeta = unknown> {
 }
 ```
 
+### `MetadataValidator<TMeta>`
+
+```ts
+type MetadataValidator<TMeta> = (metadata: TMeta) => TMeta;
+```
+
 ### `EventValidationError`
 
 ```ts
@@ -200,3 +259,21 @@ class EventValidationError extends Error {
   readonly code: EventErrorCode; // one of EVENT_ERROR_CODES
 }
 ```
+
+### `EVENT_ERROR_CODES` and `EventErrorCode`
+
+```ts
+const EVENT_ERROR_CODES = {
+  TYPE_NOT_ALLOWED: "EVENTS_TYPE_NOT_ALLOWED",
+  TYPE_TOO_LONG: "EVENTS_TYPE_TOO_LONG",
+  METADATA_TOO_LARGE: "EVENTS_METADATA_TOO_LARGE",
+  METADATA_INVALID: "EVENTS_METADATA_INVALID",
+} as const;
+type EventErrorCode =
+  (typeof EVENT_ERROR_CODES)[keyof typeof EVENT_ERROR_CODES];
+```
+
+### `EventsComponent<TMeta>`
+
+The function references the `Events` constructor needs: pass the host's
+`components.events` (or the name given to `app.use`).

@@ -6,6 +6,17 @@ All notable changes to this project are documented here. The format is based on
 
 ## [0.1.1] - Unreleased
 
+### Added
+
+- The published tarball now includes `docs/API.md`, `CHANGELOG.md` and `llms.txt` (with
+  `README.md`), so coding agents can read version-matched docs from
+  `node_modules/@vllnt/convex-events/`. `llms.txt` links to the shipped files relatively.
+- `docs/API.md` documents the `./react` and `./test` entry points and the remaining exported
+  types and constants, and the guard order.
+- `pnpm test:package` (run in CI) fails when a required file is missing from the tarball, a
+  repository-only file ships, or `llms.txt` links to a file the tarball lacks.
+- README sections "For coding agents" and "Related packages".
+
 ### Fixed
 
 - The published tarball no longer includes the React test file.
@@ -22,6 +33,11 @@ All notable changes to this project are documented here. The format is based on
 - Adopt pnpm 10 with a release-age gate; releases are published only from CI with npm
   trusted publishing and provenance.
 - Document the component error codes and how to use `/test` in a consuming app.
+- `package.json` `homepage` is now `https://oss.vllnt.com/packages/convex-events`, with more
+  `keywords`.
+- The publish workflow publishes a canary (under `@canary` only, never `@latest`) on every push
+  to `main` that changes the package source, `package.json`, the lockfile or a shipped doc; a
+  repository variable no longer gates it.
 
 ## [0.1.0] - 2026-09-01
 

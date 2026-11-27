@@ -42,15 +42,17 @@ at least one adversarial test (auth-denied, invalid input, boundary).
 - Target `main`
 - One logical change per PR
 - Include tests for new behavior or bug fixes
-- Ensure all checks pass: `pnpm typecheck && pnpm lint && pnpm test:coverage && pnpm build`
+- Ensure all checks pass:
+  `pnpm typecheck && pnpm lint && pnpm test:coverage && pnpm build && pnpm test:package`
 
 ## Releases
 
 Maintainers only. Every publish runs in `.github/workflows/publish.yml` with npm trusted
 publishing and provenance; nothing is published from a local machine.
 
-- Canary (`@canary`): pushes to `main` publish one when the `CANARY_ENABLED` repository
-  variable is `true`; otherwise run the workflow manually on `main`.
+- Canary (`@canary`): a push to `main` that changes the package source, `package.json`, the
+  lockfile or a shipped doc publishes one; the workflow can also be run manually on `main`.
+  Canaries never move `@latest`.
 - Stable (`@latest`): merge a PR that sets `package.json` `version` and adds a matching
   `## [X.Y.Z]` entry to `CHANGELOG.md`, then push the tag `vX.Y.Z` on that `main` commit.
 

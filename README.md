@@ -25,8 +25,9 @@ const feed = await events.list(ctx, subjectRef, { limit: 20 });
   newest-first.
 - **Cursor pagination** — `paginate` returns Convex's
   `{ page, isDone, continueCursor }`.
-- **Type filter & since filter** — narrow a feed (or count) to one `type`, or
-  page forward from a timestamp.
+- **Type filter & since filter** — narrow a feed (or count) to one `type`; `list`
+  and `paginate` can also keep only events with `createdAt >= since`
+  (still newest-first).
 - **Bounded count** — scans at most `maxCount + 1` rows and reports
   `{ count, isExact }`.
 - **Batched purge + retention cron** — drains large feeds in self-rescheduling
@@ -43,8 +44,16 @@ pnpm add @vllnt/convex-events
 ```
 
 Node.js >=18; required peer: `convex@^1.45.0`. React >=18 is optional. The
-default npm channel is stable; install `@vllnt/convex-events@canary` for the
-current prerelease surface documented here, including `idempotencyKey`.
+default npm channel is stable; `@vllnt/convex-events@canary` is built from
+`main`.
+
+## For coding agents
+
+The docs are bundled in the package at `node_modules/@vllnt/convex-events/docs/`
+and match the installed version: [docs/API.md](docs/API.md) is the API
+reference, and `README.md`, `CHANGELOG.md` and `llms.txt` sit at the package
+root. The TypeScript source is in `node_modules/@vllnt/convex-events/src/`. Read
+them before writing code.
 
 ## Usage
 
@@ -202,23 +211,43 @@ import { register } from "@vllnt/convex-events/test";
 import schema from "./schema";
 
 const t = convexTest(schema, import.meta.glob("./**/*.ts"));
-register(t);
+register(t as unknown as Parameters<typeof register>[0]);
 ```
+
+In this version `register` types `t` against the component's own schema, so
+TypeScript rejects a `t` built from a host schema that has tables. Cast it as
+shown; the cast changes only the type, not what is registered.
+
+## Related packages
+
+- [`@vllnt/convex-notifications`](https://www.npmjs.com/package/@vllnt/convex-notifications)
+  — a per-subject inbox with read/unread state. Use it when someone must be told
+  and mark items read; use `convex-events` for the history, which has no read
+  state.
+- [`@vllnt/convex-analytics`](https://www.npmjs.com/package/@vllnt/convex-analytics)
+  — events rolled up into funnels, retention and uniques. Use it for aggregate
+  product metrics; `convex-events` keeps individual rows per subject and only a
+  bounded count.
+- [`@vllnt/convex-consent`](https://www.npmjs.com/package/@vllnt/convex-consent)
+  — an append-only consent ledger per subject and purpose. Use it when the
+  records are consent grants and withdrawals; `convex-events` is the generic
+  ledger.
 
 ## Contributing
 
-See [CONTRIBUTING.md](CONTRIBUTING.md).
+See [CONTRIBUTING.md](https://github.com/vllnt/convex-events/blob/main/CONTRIBUTING.md).
 
 ## Author
 
 Built by [bntvllnt](https://github.com/bntvllnt) ·
 [bntvllnt.com](https://bntvllnt.com) · [X @bntvllnt](https://x.com/bntvllnt)
 
-Part of the [@vllnt](https://github.com/vllnt) Convex component fleet —
-[vllnt.com](https://vllnt.com)
-
 If this is useful, [sponsor the work](https://github.com/sponsors/bntvllnt).
 
 ## License
 
 MIT — see [LICENSE](LICENSE).
+
+---
+
+Part of vllnt oss: https://oss.vllnt.com
