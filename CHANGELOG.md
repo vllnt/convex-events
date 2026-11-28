@@ -28,8 +28,9 @@ All notable changes to this project are documented here. The format is based on
 
 ### Changed
 
-- Upgrade dev tooling (vitest 5, vite 8.3, convex 1.48, convex-test 0.0.65, prettier 3.9.10) and
-  override the vulnerable transitive `handlebars` and `deepmerge-ts` releases.
+- Upgrade dev tooling (vitest 5.1.1, vite 8.3, convex 1.51, convex-test 0.0.73, prettier 3.10,
+  jsdom 31, `@vllnt/typescript` 3 with `exactOptionalPropertyTypes` kept off) and override the
+  vulnerable transitive `handlebars`, `deepmerge-ts` and `minimatch` releases.
 - Adopt pnpm 10 with a release-age gate; releases are published only from CI with npm
   trusted publishing and provenance.
 - Document the component error codes and how to use `/test` in a consuming app.
