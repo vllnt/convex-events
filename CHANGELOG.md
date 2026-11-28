@@ -11,6 +11,8 @@ All notable changes to this project are documented here. The format is based on
 - The 7-day release-age gate for dependencies moved from the `package.json` `pnpm` field, which
   pnpm 10 ignores, to `pnpm-workspace.yaml`, where pnpm reads it. Renovate uses the same 7-day
   rule, with `@vllnt/*` exempt.
+- The package test's temporary consumer install now follows the repo's 7-day release-age gate:
+  it copies `minimumReleaseAge` and `minimumReleaseAgeExclude` from `pnpm-workspace.yaml`.
 - README rewritten in a fixed, agent-first order: when to use (and when to use
   `@vllnt/convex-notifications` or `@vllnt/convex-analytics` instead), install, quick start, an
   API table linking every export and `Events` method to `docs/API.md`, common tasks, every error

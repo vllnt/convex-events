@@ -153,9 +153,12 @@ function checkConsumer() {
       }),
     );
     // pnpm 11 reads the build-script policy from the workspace file, pnpm 10 from package.json.
+    // No lockfile here, so pnpm picks transitive versions: copy the repo's workspace file so
+    // its release-age gate (minimumReleaseAge, minimumReleaseAgeExclude) applies and cannot drift.
+    const workspace = readFileSync(join(root, "pnpm-workspace.yaml"), "utf8");
     writeFileSync(
       join(temporary, "pnpm-workspace.yaml"),
-      "allowBuilds:\n  esbuild: false\n",
+      `${workspace.trimEnd()}\nallowBuilds:\n  esbuild: false\n`,
     );
     run("pnpm", ["add", join(temporary, tarball), ...CONSUMER_DEPENDENCIES]);
     // Agents read the bundled docs from node_modules, so they must ship and resolve.
