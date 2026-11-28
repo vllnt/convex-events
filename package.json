@@ -1,7 +1,7 @@
 {
   "name": "@vllnt/convex-events",
   "version": "0.1.1",
-  "description": "Append-only per-subject activity feed and event ledger, as a Convex component",
+  "description": "Convex component for an append-only activity feed and event log: record, list, paginate, count and purge events per subject, with optional retention.",
   "license": "MIT",
   "type": "module",
   "packageManager": "pnpm@10.34.8",
@@ -116,10 +116,15 @@
   "keywords": [
     "convex",
     "convex-component",
+    "typescript",
+    "react",
     "events",
-    "event-ledger",
     "activity-feed",
-    "append-only"
+    "event-log",
+    "event-ledger",
+    "append-only",
+    "pagination",
+    "retention"
   ],
   "pnpm": {
     "minimumReleaseAge": 10080,

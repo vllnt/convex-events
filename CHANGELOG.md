@@ -6,6 +6,24 @@ All notable changes to this project are documented here. The format is based on
 
 ## [Unreleased]
 
+### Changed
+
+- README rewritten in a fixed, agent-first order: when to use (and when to use
+  `@vllnt/convex-notifications` or `@vllnt/convex-analytics` instead), install, quick start, an
+  API table linking every export and `Events` method to `docs/API.md`, common tasks, every error
+  code with its fix, limits and gotchas, compatibility, testing, security and links.
+- `docs/API.md` has one heading per export and method, with signatures, defaults, return values
+  and errors. `llms.txt` gains "When to use", a link to the errors table and the vllnt ecosystem
+  links.
+- `package.json` `description` and `keywords` describe what the package does. The `Events` TSDoc
+  links the package page.
+- `pnpm test:package` installs the packed tarball in a temporary app and checks the docs contract
+  (`scripts/check-documentation.mjs`): README sections and order, every export, method and error
+  code documented, links and anchors, the Links block, footer and llms.txt ecosystem block,
+  description length and keyword count. It type-checks the README examples against convex 1.45.0
+  and React 18 and runs the README test example.
+- `AGENTS.md` says `subjectRef` and `actorRef` must be non-empty.
+
 ## [0.1.1] - 2026-11-28
 
 ### Added
