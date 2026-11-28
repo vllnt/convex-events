@@ -1,11 +1,7 @@
 {
   "extends": "./tsconfig.json",
-  // The register test type-checks the published test helper against a host schema.
+  // Type-checks the source, every test file and the example app, so a type error in a test fails CI.
   "compilerOptions": { "rootDir": "." },
-  "include": [
-    "src/shared.ts",
-    "src/client/**/*",
-    "example/convex/register.test.ts"
-  ],
-  "exclude": ["node_modules", "dist", "src/component/**/*", "src/test.ts"]
+  "include": ["src/**/*", "example/**/*"],
+  "exclude": ["node_modules", "dist"]
 }

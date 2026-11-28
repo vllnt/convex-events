@@ -7,6 +7,7 @@ import {
   Events,
   EventValidationError,
   EVENT_ERROR_CODES,
+  type EventsComponent,
 } from "../../src/client/index.js";
 
 const modules = import.meta.glob("./**/*.ts");
@@ -96,12 +97,12 @@ describe("events — record / list", () => {
 
     const items = await t.query(api.example.list, { subjectRef: "subj_1" });
     expect(items).toHaveLength(2);
-    expect(items[0]._id).toBe(id2);
-    expect(items[0].type).toBe("updated");
-    expect(items[0].actorRef).toBeUndefined();
-    expect(items[1]._id).toBe(id1);
-    expect(items[1].actorRef).toBe("user_1");
-    expect(items[1].metadata).toEqual({ note: "first" });
+    expect(items[0]!._id).toBe(id2);
+    expect(items[0]!.type).toBe("updated");
+    expect(items[0]!.actorRef).toBeUndefined();
+    expect(items[1]!._id).toBe(id1);
+    expect(items[1]!.actorRef).toBe("user_1");
+    expect(items[1]!.metadata).toEqual({ note: "first" });
   });
 
   test("omitted metadata round-trips as absent — shape stays honest (edge)", async () => {
@@ -109,8 +110,8 @@ describe("events — record / list", () => {
     await t.mutation(api.example.record, { subjectRef: "s", type: "t" });
     const [item] = await t.query(api.example.list, { subjectRef: "s" });
     // recorded without metadata → field absent (undefined), never a fake Meta shape
-    expect(item.metadata).toBeUndefined();
-    expect("metadata" in item).toBe(false);
+    expect(item!.metadata).toBeUndefined();
+    expect("metadata" in item!).toBe(false);
   });
 
   test("list / count for an unknown subject are empty (edge: empty)", async () => {
@@ -158,14 +159,14 @@ describe("events — record / list", () => {
     await t.mutation(api.example.record, { subjectRef: "s", type: "a" });
     const all = await t.query(api.example.list, { subjectRef: "s" });
     expect(all).toHaveLength(2);
-    const cutoff = all[0].createdAt;
+    const cutoff = all[0]!.createdAt;
 
     const recent = await t.query(api.example.list, {
       subjectRef: "s",
       since: cutoff,
     });
     expect(recent).toHaveLength(1);
-    expect(recent[0].createdAt).toBeGreaterThanOrEqual(cutoff);
+    expect(recent[0]!.createdAt).toBeGreaterThanOrEqual(cutoff);
 
     const recentTyped = await t.query(api.example.list, {
       subjectRef: "s",
@@ -226,7 +227,7 @@ describe("events — paginate (cursor)", () => {
     await t.mutation(api.example.record, { subjectRef: "s", type: "a" });
     await t.mutation(api.example.record, { subjectRef: "s", type: "b" });
     const all = await t.query(api.example.list, { subjectRef: "s", type: "a" });
-    const cutoff = all[0].createdAt;
+    const cutoff = all[0]!.createdAt;
 
     const typed = await t.query(api.example.paginate, {
       subjectRef: "s",
@@ -235,7 +236,7 @@ describe("events — paginate (cursor)", () => {
       paginationOpts: { cursor: null, numItems: 10 },
     });
     expect(typed.page).toHaveLength(1);
-    expect(typed.page[0].type).toBe("a");
+    expect(typed.page[0]!.type).toBe("a");
     expect(typed.isDone).toBe(true);
   });
 
@@ -245,7 +246,7 @@ describe("events — paginate (cursor)", () => {
     await tick();
     await t.mutation(api.example.record, { subjectRef: "s", type: "b" });
     const all = await t.query(api.example.list, { subjectRef: "s" });
-    const cutoff = all[0].createdAt;
+    const cutoff = all[0]!.createdAt;
 
     const recent = await t.query(api.example.paginate, {
       subjectRef: "s",
@@ -253,7 +254,7 @@ describe("events — paginate (cursor)", () => {
       paginationOpts: { cursor: null, numItems: 10 },
     });
     expect(recent.page).toHaveLength(1);
-    expect(recent.page[0].createdAt).toBeGreaterThanOrEqual(cutoff);
+    expect(recent.page[0]!.createdAt).toBeGreaterThanOrEqual(cutoff);
     expect(recent.isDone).toBe(true);
   });
 
@@ -340,7 +341,7 @@ describe("events — purge (batched)", () => {
     await tick();
     await t.mutation(api.example.record, { subjectRef: "s", type: "t" });
     const all = await t.query(api.example.list, { subjectRef: "s" });
-    const cutoff = all[0].createdAt;
+    const cutoff = all[0]!.createdAt;
 
     const deleted = await t.mutation(api.example.purge, {
       subjectRef: "s",
@@ -475,7 +476,7 @@ describe("events — client guards (boundary rejection)", () => {
     });
     expect(typeof id).toBe("string");
     const [item] = await t.query(api.example.list, { subjectRef: "s" });
-    expect(item.metadata).toEqual({ note: "hi" }); // validator trimmed
+    expect(item!.metadata).toEqual({ note: "hi" }); // validator trimmed
   });
 
   test("guarded record without metadata skips the validator (happy)", async () => {
@@ -678,7 +679,7 @@ describe("events — selective retention", () => {
       expect(deleted).toBe(1);
       const remaining = await t.query(api.example.list, { subjectRef: "s" });
       expect(remaining).toHaveLength(1);
-      expect(remaining[0].type).toBe("new");
+      expect(remaining[0]!.type).toBe("new");
     } finally {
       vi.useRealTimers();
     }
@@ -693,7 +694,7 @@ describe("events — purge strict-< boundary", () => {
     await t.mutation(api.example.record, { subjectRef: "s", type: "t" });
     const all = await t.query(api.example.list, { subjectRef: "s" });
     expect(all).toHaveLength(2);
-    const newestTs = all[0].createdAt;
+    const newestTs = all[0]!.createdAt;
     const deleted = await t.mutation(api.example.purge, {
       subjectRef: "s",
       before: newestTs,
@@ -701,14 +702,14 @@ describe("events — purge strict-< boundary", () => {
     expect(deleted).toBe(1);
     const remaining = await t.query(api.example.list, { subjectRef: "s" });
     expect(remaining).toHaveLength(1);
-    expect(remaining[0].createdAt).toBe(newestTs);
+    expect(remaining[0]!.createdAt).toBe(newestTs);
   });
 });
 
 describe("events — METADATA_INVALID wiring", () => {
   test("metadataValidator that throws surfaces EventValidationError with code METADATA_INVALID", async () => {
     const throwingEvents = new Events<{ note: string }>(
-      {} as Parameters<typeof Events>[0],
+      {} as EventsComponent<{ note: string }>,
       {
         allowedTypes: ["t"],
         metadataValidator: () => {
@@ -736,7 +737,7 @@ describe("events — METADATA_INVALID wiring", () => {
 
   test("metadataValidator throwing a non-Error surfaces a generic METADATA_INVALID message", async () => {
     const throwingEvents = new Events<{ note: string }>(
-      {} as Parameters<typeof Events>[0],
+      {} as EventsComponent<{ note: string }>,
       {
         allowedTypes: ["t"],
         metadataValidator: () => {
