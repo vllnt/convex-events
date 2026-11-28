@@ -21,8 +21,10 @@ All notable changes to this project are documented here. The format is based on
   (`scripts/check-documentation.mjs`): README sections and order, every export, method and error
   code documented, links and anchors, the Links block, footer and llms.txt ecosystem block,
   description length and keyword count. It type-checks the README examples against convex 1.45.0
-  and React 18 and runs the README test example.
+  and React 18, checks that the `docs/API.md` signatures of `register`, `useActivityFeed` and
+  `useEventCount` are the same types as the real exports, and runs the README test example.
 - `AGENTS.md` says `subjectRef` and `actorRef` must be non-empty.
+- README Compatibility names the `convex-test` versions that work with convex 1.45.
 
 ## [0.1.1] - 2026-11-28
 

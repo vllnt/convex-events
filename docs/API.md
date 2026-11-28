@@ -27,9 +27,11 @@ new Events<TMeta = unknown>(component: EventsComponent<TMeta>, options?: EventsO
 `component` is the mounted component, `components.events` (or the name passed to
 `app.use`). `TMeta` types the `metadata` you record and read back. See
 [`EventsOptions`](#eventsoptions) for the defaults and guards. Every method
-takes the host `ctx` first: a mutation context for `record`, `purge`,
-`configure` and `pruneExpired`, a query or mutation context for `list`,
-`paginate` and `count`.
+takes the host `ctx` first. The context types are structural: `record`, `purge`,
+`configure` and `pruneExpired` need any context with `runMutation` (a mutation
+or action context); `list`, `paginate` and `count` need any context with
+`runQuery` (a query, mutation or action context). From an action, each call runs
+in its own transaction.
 
 ### `record`
 
@@ -181,10 +183,12 @@ interface EventsOptions<TMeta = unknown> {
 }
 ```
 
-`defaultLimit` and `defaultMaxCount` are not checked when the client is built;
-an out-of-range value fails each call with `INVALID_LIMIT`. `maxTypeLength`
-compares `type.length` (UTF-16 code units). `maxMetadataBytes` compares the
-UTF-8 byte length of `JSON.stringify(metadata)`.
+`defaultLimit` and `defaultMaxCount` are not checked when the client is built.
+An out-of-range default fails with `INVALID_LIMIT` only the `list` calls that
+leave out `limit` and the `count` calls that leave out `maxCount`, because only
+those fall back to it. `maxTypeLength` compares `type.length` (UTF-16 code
+units). `maxMetadataBytes` compares the UTF-8 byte length of
+`JSON.stringify(metadata)`.
 
 ### `EventDoc`
 
@@ -297,6 +301,13 @@ public query references; the component never imports your `api`.
 ### `useActivityFeed`
 
 ```ts
+import type {
+  PaginatedQueryArgs,
+  PaginatedQueryItem,
+  UsePaginatedQueryResult,
+} from "convex/react";
+import type { ActivityFeedRef } from "@vllnt/convex-events/react";
+
 useActivityFeed<Ref extends ActivityFeedRef>(
   paginateRef: Ref,
   args: PaginatedQueryArgs<Ref>,
@@ -311,6 +322,8 @@ Returns `{ results, status, loadMore, isLoading }`.
 ### `useEventCount`
 
 ```ts
+import type { CountResult, EventCountRef } from "@vllnt/convex-events/react";
+
 useEventCount(
   countRef: EventCountRef,
   args: { subjectRef: string; type?: string },
@@ -373,11 +386,18 @@ Generated type of the mounted component's internal functions (`mutations.*`,
 ### `register`
 
 ```ts
-register(t: TestConvex<SchemaDefinition<GenericSchema, boolean>>, name?: string): void
+import type { TestConvex } from "convex-test";
+import type { GenericSchema, SchemaDefinition } from "convex/server";
+
+register<TSchema extends GenericSchema>(
+  t: TestConvex<SchemaDefinition<TSchema, boolean>>,
+  name = "events",
+): void
 ```
 
-Registers the component with a `convex-test` instance under `name` (default
-`"events"`; pass the mount name if you used `app.use(events, { name })`). `t`
-can be built from any host schema. The helper ships as TypeScript source and
-uses Vite's `import.meta.glob`, so it needs Vitest (or another Vite-based
-runner) plus `convex-test`.
+Registers the component with a `convex-test` instance under `name` (pass the
+mount name if you used `app.use(events, { name })`). `t` can be built from any
+host schema, including one with its own tables; `TSchema` is inferred, so no
+cast is needed. The helper ships as TypeScript source and uses Vite's
+`import.meta.glob`, so it needs Vitest (or another Vite-based runner) plus
+`convex-test`.

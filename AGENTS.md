@@ -99,7 +99,7 @@ The component never reads host or sibling tables. Host data enters only as opaqu
 | `llms.txt` | the only LLM index, curated by hand — `convex@^X.Y.Z` must match `package.json` `peerDependencies.convex` |
 | `AGENTS.md` | canonical agent instructions (this file) |
 | `CHANGELOG.md` | Keep-a-Changelog entry per release |
-| `scripts/check-documentation.mjs` | docs contract run by `pnpm test:package` on the packed tarball: README sections and order, exports/methods/error codes documented, links and anchors, Links block, footer, llms.txt Ecosystem block, description and keywords; README `ts`/`tsx` examples are type-checked and the test example is run |
+| `scripts/check-documentation.mjs` | docs contract run by `pnpm test:package` on the packed tarball: README sections and order, exports/methods/error codes documented, links and anchors, Links block, footer, llms.txt Ecosystem block, description and keywords; README `ts`/`tsx` examples and the `docs/API.md` signatures of standalone function exports (`register`, the React hooks) are type-checked, and the README test example is run |
 
 Update the `llms.txt` summary by hand after any source, README, or API.md change, then run
 `pnpm generate:llms` (it only checks `llms.txt`; it generates nothing). Grep stale values before

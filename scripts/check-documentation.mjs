@@ -1,4 +1,4 @@
-// Agent-first documentation contract shared by every @vllnt package.
+// Agent-first documentation contract, ported from @vllnt/convex-buckets.
 // test-package.mjs runs it on the installed tarball: what consumers receive.
 import assert from "node:assert/strict";
 import {
@@ -324,20 +324,62 @@ const publicMethods = (checker, symbol) =>
       return !(ts.getCombinedModifierFlags(declaration) & hidden);
     });
 
+/** A README API table row whose first cell starts with `cell` (optionally as a link). @param {string} table @param {string} cell */
+const hasRow = (table, cell) =>
+  new RegExp(
+    String.raw`^\|\s*\[?${cell.replaceAll(/[$()*+.?[\\\]^{|}]/gu, String.raw`\$&`)}`,
+    "mu",
+  ).test(table);
+
 /** TSDoc summary, README API row and reference heading. @param {Documented} documented @param {Entry} entry @param {Export} item */
 function checkExport({ headings, table }, { checker, entry }, item) {
   const label = item.name === "default" ? entry.slice(2) : item.name;
   const row = item.name === "default" ? "`default" : `\`${label}\``;
   assert.ok(hasSummary(checker, item.target), `${label} has no TSDoc summary`);
-  assert.ok(table.includes(row), `README API table lacks ${label}`);
+  assert.ok(hasRow(table, row), `README API table lacks ${label}`);
   assert.ok(headings.has(slug(label)), `docs/API.md lacks a ${label} heading`);
   if (!(item.target.flags & ts.SymbolFlags.Class)) return;
   publicMethods(checker, item.target).forEach((method) => {
     const { name } = method;
     assert.ok(hasSummary(checker, method), `${name} has no TSDoc summary`);
-    assert.ok(table.includes(`\`${name}(`), `README API table lacks ${name}`);
+    assert.ok(hasRow(table, `\`${name}(`), `README API table lacks ${name}`);
     assert.ok(headings.has(slug(name)), `docs/API.md lacks a ${name} heading`);
   });
+}
+
+/**
+ * For each exported standalone function, a module that declares the
+ * signature shown under its docs/API.md heading and asserts it is the same
+ * type as the real export. Class methods are not covered: their `ctx`
+ * parameter types are not exported, so docs cannot spell them out.
+ * @param {string} reference docs/API.md @param {string} packageName @param {Entry[]} entries
+ * @returns {{ code: string, path: string }[]}
+ */
+function signatureChecks(reference, packageName, entries) {
+  return entries.flatMap(({ entry, symbols }) =>
+    symbols
+      .filter(({ target }) => target.flags & ts.SymbolFlags.Function)
+      .map(({ name }) => {
+        const start = reference.indexOf(`\n### \`${name}\`\n`);
+        assert.ok(start !== -1, `docs/API.md lacks a ${name} heading`);
+        const body = reference.slice(start + 1).split(/\n#{1,6} /u)[0] ?? "";
+        const block = codeBlocks(body).find(({ lang }) => lang === "ts");
+        assert.ok(block, `docs/API.md ${name}: no ts signature block`);
+        const lines = block.code.split("\n");
+        const at = lines.findIndex((line) => line.startsWith(name));
+        assert.ok(at !== -1, `docs/API.md ${name}: no signature`);
+        const text = lines.slice(at).join("\n").trim();
+        const mismatch = `docs/API.md ${name} signature differs from the export`;
+        const code = [
+          ...lines.slice(0, at),
+          `import { ${name} as actual } from "${packageName}${entry.slice(1)}";`,
+          "type Same<A, B> = (<T>() => T extends A ? 1 : 2) extends (<T>() => T extends B ? 1 : 2) ? true : false;",
+          `function documented${text.slice(name.length)} { throw new Error("signature only"); }`,
+          `export const matches: Same<typeof documented, typeof actual> extends true ? "ok" : "${mismatch}" = "ok";`,
+        ].join("\n");
+        return { code, path: `documentation/${name}.signature.ts` };
+      }),
+  );
 }
 
 /** A main-entry export carries `@see <package page>`. @param {Entry[]} entries @param {string} page */
@@ -423,11 +465,13 @@ function checkBacklinks(installed, texts) {
 
 /**
  * Docs cover every export of every entry point; the main entry links its page.
+ * Returns the signature modules for the caller to compile.
  * @param {string} consumer
  * @param {{ exports: Record<string, unknown>, name: string }} metadata
  * @param {Documented} documented
+ * @param {string} reference docs/API.md
  */
-function checkApi(consumer, metadata, documented) {
+function checkApi(consumer, metadata, documented, reference) {
   const keys = Object.keys(metadata.exports).filter(
     (key) => key !== "./package.json" && !key.endsWith(".js"),
   );
@@ -439,6 +483,7 @@ function checkApi(consumer, metadata, documented) {
   });
   const name = metadata.name.split("/").at(-1) ?? metadata.name;
   checkSee(entries, `${OSS}/packages/${name}`);
+  return signatureChecks(reference, metadata.name, entries);
 }
 
 /**
@@ -495,7 +540,8 @@ function readTexts(installed) {
 
 /**
  * Checks README.md, llms.txt and docs/ of an installed package and returns
- * the README `ts` blocks for the caller to compile and run.
+ * the README `ts`/`tsx` blocks and the docs/API.md signature modules for the
+ * caller to compile (and the README test to run).
  * @param {string} installed package directory inside node_modules
  * @param {string} consumer project that has the package installed
  */
@@ -514,13 +560,18 @@ export function checkDocumentation(installed, consumer) {
   checkIdentity(texts, parts, metadata);
   checkTop(readme, metadata.name);
   checkLinks(installed, texts);
-  checkApi(consumer, metadata, {
-    headings: anchors(reference),
-    table: section(parts, "API")
-      .body.split("\n")
-      .filter((line) => line.startsWith("|"))
-      .join("\n"),
-  });
+  const signatures = checkApi(
+    consumer,
+    metadata,
+    {
+      headings: anchors(reference),
+      table: section(parts, "API")
+        .body.split("\n")
+        .filter((line) => line.startsWith("|"))
+        .join("\n"),
+    },
+    reference,
+  );
   checkErrorCodes(
     installed,
     section(parts, "Errors and fixes").body,
@@ -528,7 +579,7 @@ export function checkDocumentation(installed, consumer) {
   );
   checkLlms(String(texts["llms.txt"]), name);
   checkBacklinks(installed, texts);
-  return checkCode(texts);
+  return [...checkCode(texts), ...signatures];
 }
 
 /**

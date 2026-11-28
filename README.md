@@ -50,6 +50,16 @@ import { mutation, query } from "./_generated/server";
 
 const events = new Events<{ taskId: string }>(components.events);
 
+const activityEvent = v.object({
+  _id: v.string(),
+  _creationTime: v.number(),
+  subjectRef: v.string(),
+  type: v.string(),
+  actorRef: v.optional(v.string()),
+  metadata: v.optional(v.object({ taskId: v.string() })),
+  createdAt: v.number(),
+});
+
 export const completeTask = mutation({
   args: { taskId: v.string() },
   returns: v.string(),
@@ -64,6 +74,7 @@ export const completeTask = mutation({
 
 export const myActivity = query({
   args: {},
+  returns: v.array(activityEvent),
   handler: async (ctx) => {
     const user = await ctx.auth.getUserIdentity();
     if (user === null) throw new ConvexError("not signed in");
@@ -115,13 +126,26 @@ queries, which must check that the caller may read `subjectRef`:
 ```ts
 // convex/feed.ts
 import { Events } from "@vllnt/convex-events";
-import { paginationOptsValidator } from "convex/server";
+import {
+  paginationOptsValidator,
+  paginationResultValidator,
+} from "convex/server";
 import { ConvexError, v } from "convex/values";
 
 import { components } from "./_generated/api";
 import { query } from "./_generated/server";
 
-const events = new Events(components.events);
+const events = new Events<{ taskId: string }>(components.events);
+
+const feedEvent = v.object({
+  _id: v.string(),
+  _creationTime: v.number(),
+  subjectRef: v.string(),
+  type: v.string(),
+  actorRef: v.optional(v.string()),
+  metadata: v.optional(v.object({ taskId: v.string() })),
+  createdAt: v.number(),
+});
 
 export const page = query({
   args: {
@@ -129,6 +153,7 @@ export const page = query({
     type: v.optional(v.string()),
     paginationOpts: paginationOptsValidator,
   },
+  returns: paginationResultValidator(feedEvent),
   handler: async (ctx, { subjectRef, type, paginationOpts }) => {
     const user = await ctx.auth.getUserIdentity();
     if (user?.tokenIdentifier !== subjectRef)
@@ -182,7 +207,9 @@ export function ActivityFeed({ subjectRef }: { subjectRef: string }) {
 ```
 
 Filter by type and time, make a retried call safe, and delete a subject's
-history (for example on account deletion):
+history (for example on account deletion). Pass `since` in from the caller:
+Convex caches query results, so a query that computes its own window from
+`Date.now()` does not move it forward.
 
 ```ts
 // convex/orders.ts
@@ -190,9 +217,19 @@ import { Events } from "@vllnt/convex-events";
 import { v } from "convex/values";
 
 import { components } from "./_generated/api";
-import { internalMutation, query } from "./_generated/server";
+import { internalMutation, internalQuery } from "./_generated/server";
 
 const events = new Events<{ amount: number }>(components.events);
+
+const paymentEvent = v.object({
+  _id: v.string(),
+  _creationTime: v.number(),
+  subjectRef: v.string(),
+  type: v.string(),
+  actorRef: v.optional(v.string()),
+  metadata: v.optional(v.object({ amount: v.number() })),
+  createdAt: v.number(),
+});
 
 export const recordPayment = internalMutation({
   args: { orderId: v.string(), paymentId: v.string(), amount: v.number() },
@@ -204,14 +241,11 @@ export const recordPayment = internalMutation({
     }),
 });
 
-export const recentPayments = query({
-  args: { orderId: v.string() },
-  handler: (ctx, { orderId }) =>
-    events.list(ctx, orderId, {
-      type: "order.paid",
-      since: Date.now() - 7 * 24 * 60 * 60 * 1000,
-      limit: 100,
-    }),
+export const paymentsSince = internalQuery({
+  args: { orderId: v.string(), since: v.number() },
+  returns: v.array(paymentEvent),
+  handler: (ctx, { orderId, since }) =>
+    events.list(ctx, orderId, { type: "order.paid", since, limit: 100 }),
 });
 
 export const eraseOrderHistory = internalMutation({
@@ -395,7 +429,9 @@ set, metadata that `JSON.stringify` cannot serialize (a `bigint`) throws its own
   only.
 - `@vllnt/convex-events/test` ships as TypeScript source and needs
   `convex-test`, `vitest`, `vite` and `@edge-runtime/vm`, with the Vitest config
-  shown under Testing.
+  shown under Testing. `convex-test` 0.0.72 and newer require convex `^1.46.0`;
+  on convex 1.45 use `convex-test` 0.0.56 to 0.0.71 (convex `^1.43.0`). The
+  packed-package check uses convex 1.45.0 with `convex-test` 0.0.56.
 
 ## Testing
 
@@ -445,8 +481,10 @@ host schema, with no cast.
 
 `pnpm test:coverage` runs the tests on the simulated `convex-test` runtime with
 100% coverage enforced. They do not prove production concurrency or scheduler
-delivery. `pnpm test:package` installs the packed tarball in a temporary app,
-checks these docs and type-checks and runs the README examples.
+delivery. `pnpm test:package` installs the packed tarball in a temporary app and
+checks these docs. It type-checks every README `ts` and `tsx` example and the
+`docs/API.md` signatures of `register`, `useActivityFeed` and `useEventCount`,
+and runs only the README test example (`convex/activity.test.ts`).
 
 ## Security
 
