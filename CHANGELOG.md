@@ -25,6 +25,8 @@ All notable changes to this project are documented here. The format is based on
   `useEventCount` are the same types as the real exports, and runs the README test example.
 - `AGENTS.md` says `subjectRef` and `actorRef` must be non-empty.
 - README Compatibility names the `convex-test` versions that work with convex 1.45.
+- The publish workflow runs `pnpm test:package` before publishing, and CI type-checks every test
+  and example file and runs the package-contents check's own tests.
 
 ## [0.1.1] - 2026-11-28
 

@@ -194,10 +194,12 @@ function checkConsumer() {
       `
 import { Events } from "@vllnt/convex-events";
 import type { ComponentApi } from "@vllnt/convex-events/_generated/component.js";
+import type { ComponentApi as BareComponentApi } from "@vllnt/convex-events/_generated/component";
 import config from "@vllnt/convex-events/convex.config.js";
 import { useEventCount } from "@vllnt/convex-events/react";
 import { defineApp } from "convex/server";
 declare const component: ComponentApi;
+const bare: BareComponentApi = component; void bare;
 const client = new Events(component);
 const app = defineApp(); app.use(config);
 void client; void app; void useEventCount;
