@@ -1,46 +1,77 @@
 # @vllnt/convex-events
 
-> Append-only per-subject activity feed and event ledger, as a Convex component
+> Convex component for an append-only activity feed and event log: record, list, paginate, count and purge events per subject, with optional retention.
 
-`@vllnt/convex-events` is a publishable Convex component. It targets `convex@^1.45.0`.
-It stores two sandboxed tables - `events` (`subjectRef`, `type`, optional `actorRef`, optional `idempotencyKey`, opaque `metadata`, `createdAt`), indexed `by_subject`, `by_subject_idempotency`, `by_subject_type`, and `by_createdAt`; and a singleton `config` (`retentionMs?`). `record` appends an event (stamping `createdAt`); `list` reads a subject's feed newest-first (with optional `type` / `since` / `limit`), `paginate` returns Convex's cursor page `{ page, isDone, continueCursor }`, and `count` returns a bounded `{ count, isExact }` (scans at most `maxCount + 1` rows). `purge` drops a subject's events in self-rescheduling batches (all, or only those before a cutoff). `configure` sets a `retentionMs` window that an internal idempotent daily cron prunes against (`pruneExpired`). The client is generic over the host's metadata type and applies optional boundary guards (`allowedTypes`, `maxTypeLength`, `maxMetadataBytes`, `metadataValidator`) that throw a code-tagged `EventValidationError`. The host owns the subject, actor, auth, and meaning; the component owns only the ordered event store.
+Install `@vllnt/convex-events` (unreleased builds from `main` use the `canary`
+dist-tag). Peer dependency `convex@^1.45.0`; `react@>=18` is optional and only
+needed for `@vllnt/convex-events/react`. Mount it with `app.use(events)` from
+`@vllnt/convex-events/convex.config` and call it through
+`new Events<TMeta>(components.events, options?)` from host mutations and
+queries. Methods: `record`, `list`, `paginate`, `count`, `purge`, `configure`,
+`pruneExpired`. Feeds are keyed by an opaque `subjectRef` and ordered
+newest-first by the component-stamped `createdAt`. `list` returns up to `limit`
+events (default 50, max 1000) filtered by `type` and inclusive `since`;
+`paginate` returns a Convex cursor page; `count` reads at most `maxCount + 1`
+rows (default and max 1000) and returns `{ count, isExact }`. `record` accepts
+`actorRef`, typed `metadata` and an `idempotencyKey` (1..256 characters, per
+subject) that returns the first event's id on a retry. `purge` deletes a
+subject's events (optionally `createdAt < before`) in self-rescheduling batches
+(default 256, max 500). Retention is off until `configure(ctx, retentionMs)`;
+then a daily cron prunes events older than the window. Invalid input throws
+`ConvexError` with `data.code` `INVALID_ARGUMENT`, `INVALID_IDEMPOTENCY_KEY`,
+`INVALID_LIMIT`, `INVALID_SINCE`, `INVALID_BATCH`, `INVALID_BEFORE` or
+`INVALID_RETENTION`. Optional client guards (`allowedTypes`, `maxTypeLength`,
+`maxMetadataBytes`, `metadataValidator`) throw `EventValidationError` with
+`code` `EVENTS_TYPE_NOT_ALLOWED`, `EVENTS_TYPE_TOO_LONG`,
+`EVENTS_METADATA_INVALID` or `EVENTS_METADATA_TOO_LARGE`. React hooks
+`useActivityFeed` and `useEventCount` take the host's own public queries. The
+host owns auth and the meaning of subjects, actors, types and metadata.
 
-`record` accepts the option `idempotencyKey`
-(1–256 UTF-16 code units): retained keys replay the first ID per subject, even
-with a different payload/type. Purge and retention remove that protection.
-Client defaults are list limit 50 and count bound 1000; list/page sizes must be
-integers in 1–1000 and count bounds in 0–1000. Metadata/type guards are
-opt-in. Purge/prune batches default to 256 (integer 1–500). Retention is off until
-configured; its window must be non-negative and finite. Named mounts isolate
-feeds and maintenance. React >=18 is optional; Convex is required.
+## When to use
+
+- Use it when you need a newest-first history of what happened to one subject
+  (a user, document, order or project).
+- Use it when events must be appended, never edited, and read back by type,
+  time or cursor page.
+- Use it when retries must not write the same event twice (`idempotencyKey`).
+- Do not use it when each recipient needs an inbox with read/unread state: use
+  `@vllnt/convex-notifications`.
+- Do not use it when you need aggregate metrics such as funnels, retention or
+  uniques: use `@vllnt/convex-analytics`.
 
 ## For coding agents
 
-This package bundles its docs, and they match the installed version. Read them before writing
-code: `node_modules/@vllnt/convex-events/docs/API.md` (API reference), with `README.md`,
-`CHANGELOG.md` and this file at the package root. The TypeScript source is in
-`node_modules/@vllnt/convex-events/src/`.
+The docs are bundled in the package at `node_modules/@vllnt/convex-events/docs/`
+and match the installed version. Read them, and the shipped `src/`, before
+writing code. The links below to `./` paths are files inside the installed package.
 
 ## Docs
 
-- [README](./README.md): Project overview, installation, usage examples, architecture
-- [API Reference](./docs/API.md): Public class methods, return shapes, input validation
+- [README](./README.md): Install, quick start, common tasks, limits
+- [API Reference](./docs/API.md): Every export, signature, return shape and validation rule
+- [Errors and fixes](./README.md#errors-and-fixes): Every error code, its cause and the fix
 - [Changelog](./CHANGELOG.md): Version history and release notes
+- [Contributing](https://github.com/vllnt/convex-events/blob/main/CONTRIBUTING.md): Development setup, validation commands, release workflow (repository only)
 
 ## Examples
 
 Repository files, not bundled in the package; they track `main`.
 
 - [Example component wrapper](https://github.com/vllnt/convex-events/blob/main/example/convex/example.ts): Host-app wrapper functions
-- [Example tests](https://github.com/vllnt/convex-events/blob/main/example/convex/example.test.ts): End-to-end usage coverage with `convex-test`
+- [Example tests](https://github.com/vllnt/convex-events/blob/main/example/convex/example.test.ts): Simulated usage coverage with `convex-test`
 
 ## Optional
 
-- [Contributing](https://github.com/vllnt/convex-events/blob/main/CONTRIBUTING.md): Development setup, validation commands, release workflow (repository only)
+- [AGENTS](https://github.com/vllnt/convex-events/blob/main/AGENTS.md): Contributor instructions for working in this repository (repository only)
 - [Security Policy](https://github.com/vllnt/convex-events/blob/main/SECURITY.md): Vulnerability reporting policy (repository only)
 - [Code of Conduct](https://github.com/vllnt/convex-events/blob/main/CODE_OF_CONDUCT.md): Community participation guidelines (repository only)
 - [License](./LICENSE): MIT license
 
 ## Ecosystem
 
-- [vllnt oss](https://oss.vllnt.com/llms.txt): Index of the other vllnt open-source packages
+- [Package page](https://oss.vllnt.com/packages/convex-events)
+- [Release feed](https://oss.vllnt.com/packages/convex-events/rss.xml)
+- [All @vllnt packages](https://oss.vllnt.com/llms.txt)
+- [Search vllnt packages and docs](https://index.vllnt.com)
+- [vllnt](https://vllnt.com/llms.txt)
+- [Author](https://bntvllnt.com)

@@ -74,8 +74,8 @@ The component never reads host or sibling tables. Host data enters only as opaqu
   and re-throws as `EventValidationError(METADATA_INVALID)`, preserving the original message.
   All client-boundary rejections carry a stable `code` from `EVENT_ERROR_CODES`.
 - **Auth-agnostic.** No auth library assumed. The host resolves identity, gates access, and passes
-  opaque refs in. `subjectRef` and `actorRef` are arbitrary strings — the component never inspects
-  their shape.
+  opaque refs in. `subjectRef` and `actorRef` are arbitrary non-empty strings — the component rejects
+  empty ones on writes (`INVALID_ARGUMENT`) and never inspects their shape otherwise.
 - **Optional `./react` layer.** `useActivityFeed` (wraps `usePaginatedQuery`) and `useEventCount`
   (wraps `useQuery`) ship as an optional tree-shakeable `./react` entry. Hooks accept the host's
   re-exported function refs — the component never imports the host `api`. Backend-only consumers
@@ -94,11 +94,12 @@ The component never reads host or sibling tables. Host data enters only as opaqu
 
 | Doc | Owns |
 |-----|------|
-| `README.md` | Features, Architecture, Installation, Usage, API Reference, React, Security Model, Testing, Contributing, Author, License |
-| `docs/API.md` | Full method signatures, types, guards, error codes, compatibility line |
+| `README.md` | Fixed agent-first sections, in order: For coding agents, When to use, Install, Quick start, API, Common tasks, Errors and fixes, Limits and gotchas, Compatibility, Testing, Security, Related packages, Contributing, Links, License, footer |
+| `docs/API.md` | Full method signatures, types, guards, error codes, compatibility line; one heading per export and `Events` method (the README API table links them) |
 | `llms.txt` | the only LLM index, curated by hand — `convex@^X.Y.Z` must match `package.json` `peerDependencies.convex` |
 | `AGENTS.md` | canonical agent instructions (this file) |
 | `CHANGELOG.md` | Keep-a-Changelog entry per release |
+| `scripts/check-documentation.mjs` | docs contract run by `pnpm test:package` on the packed tarball: README sections and order, exports/methods/error codes documented, links and anchors, Links block, footer, llms.txt Ecosystem block, description and keywords; README `ts`/`tsx` examples and the `docs/API.md` signatures of standalone function exports (`register`, the React hooks) are type-checked, and the README test example is run |
 
 Update the `llms.txt` summary by hand after any source, README, or API.md change, then run
 `pnpm generate:llms` (it only checks `llms.txt`; it generates nothing). Grep stale values before

@@ -108,6 +108,8 @@ function byteSize(value: unknown): number {
  * Consumer-facing client for the append-only per-subject activity feed. The
  * host owns meaning and auth; it passes opaque `subjectRef` / `actorRef` refs
  * and a host-typed `metadata` payload (typed here as `TMeta`).
+ *
+ * @see https://oss.vllnt.com/packages/convex-events
  */
 export class Events<TMeta = unknown> {
   private readonly defaultLimit: number;
