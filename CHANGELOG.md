@@ -4,7 +4,9 @@ All notable changes to this project are documented here. The format is based on
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and this project adheres to
 [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [0.1.1] - Unreleased
+## [Unreleased]
+
+## [0.1.1] - 2026-11-28
 
 ### Added
 
@@ -25,6 +27,8 @@ All notable changes to this project are documented here. The format is based on
 - `list` and `paginate` reject a non-finite `since` with `ConvexError({ code: "INVALID_SINCE" })`.
 - `@vllnt/convex-events/test` now type-checks under `moduleResolution: nodenext`
   (explicit `.js` relative imports, Vite client types referenced).
+- `register` from `@vllnt/convex-events/test` accepts a `convexTest` instance built from a host
+  schema that has its own tables (no cast needed).
 
 ### Changed
 
