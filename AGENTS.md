@@ -8,6 +8,12 @@ override what you may have learned about Convex from training data.
 Convex agent skills for common tasks can be installed by running `npx convex ai-files install`.
 <!-- convex-ai-end -->
 
+`example/convex/_generated/ai/guidelines.md` is generated and gitignored, so a fresh clone lacks it.
+If it is missing, run `pnpm exec convex ai-files install` (no login or deployment needed; it writes
+there because `convex.json` sets `functions: example/convex`). That command also adds `CLAUDE.md`
+and `.claude/` and rewraps the section above: remove both and run `git restore AGENTS.md` before
+committing. If the command cannot run, use the official Convex docs at https://docs.convex.dev.
+
 # @vllnt/convex-events
 
 Append-only per-subject activity feed and event ledger, as a Convex component. Follows the vllnt
