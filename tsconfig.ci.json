@@ -1,5 +1,11 @@
 {
   "extends": "./tsconfig.json",
-  "include": ["src/shared.ts", "src/client/**/*"],
+  // The register test type-checks the published test helper against a host schema.
+  "compilerOptions": { "rootDir": "." },
+  "include": [
+    "src/shared.ts",
+    "src/client/**/*",
+    "example/convex/register.test.ts"
+  ],
   "exclude": ["node_modules", "dist", "src/component/**/*", "src/test.ts"]
 }

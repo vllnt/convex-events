@@ -12,7 +12,10 @@
     "CHANGELOG.md",
     "llms.txt",
     "!src/**/*.test.*",
-    "!src/**/*.spec.*"
+    "!src/**/*.spec.*",
+    "!src/**/*.test-d.*",
+    "!src/**/*.bench.*",
+    "!src/**/__tests__/**"
   ],
   "exports": {
     "./package.json": "./package.json",
